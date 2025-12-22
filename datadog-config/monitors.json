@@ -1,0 +1,114 @@
+{
+    "monitors": [
+        {
+            "name": "[Prompt Prompter] Low Accuracy Score Alert",
+            "type": "metric alert",
+            "query": "avg(last_5m):avg:prompt.accuracy{service:prompt-prompter} < 0.8",
+            "message": "## 🚨 Low Accuracy Detected\n\n**Service:** prompt-prompter\n**Current Score:** {{value}}\n**Threshold:** < 0.8\n\n### Impact\nPrompt quality is degraded. Users are receiving lower-quality responses.\n\n### Actions\n1. Check recent prompts in APM traces\n2. Review hallucination scores\n3. Consider enabling auto-optimization\n\n### Runbook\n- Dashboard: {{#is_alert}}https://app.datadoghq.com/dashboard/xxx{{/is_alert}}\n- Traces: Filter by `service:prompt-prompter` and `accuracy_score:<0.8`\n\n@slack-alerts @pagerduty-prompt-prompter",
+            "tags": [
+                "service:prompt-prompter",
+                "alert_type:accuracy",
+                "severity:high"
+            ],
+            "options": {
+                "thresholds": {
+                    "critical": 0.8,
+                    "warning": 0.85
+                },
+                "notify_audit": true,
+                "include_tags": true,
+                "new_host_delay": 300,
+                "notify_no_data": false,
+                "renotify_interval": 60,
+                "escalation_message": "Accuracy still below threshold after 1 hour. Escalating."
+            },
+            "priority": 2
+        },
+        {
+            "name": "[Prompt Prompter] High Token Usage Alert",
+            "type": "metric alert",
+            "query": "avg(last_5m):avg:prompt.tokens{service:prompt-prompter,type:total} > 1000",
+            "message": "## ⚠️ High Token Usage Detected\n\n**Service:** prompt-prompter\n**Current Tokens:** {{value}}\n**Threshold:** > 1000 tokens\n\n### Impact\n- Increased API costs\n- Potentially verbose or inefficient prompts\n- May indicate prompt injection or abuse\n\n### Actions\n1. Review recent high-token requests in APM\n2. Check for prompt optimization opportunities\n3. Consider implementing token limits\n\n### Cost Estimate\nAt current rate: ~${{eval \"{{value}} * 0.0005\"}} per request\n\n@slack-cost-alerts",
+            "tags": [
+                "service:prompt-prompter",
+                "alert_type:tokens",
+                "severity:medium"
+            ],
+            "options": {
+                "thresholds": {
+                    "critical": 1000,
+                    "warning": 800
+                },
+                "notify_audit": true,
+                "include_tags": true,
+                "notify_no_data": false,
+                "renotify_interval": 120
+            },
+            "priority": 3
+        },
+        {
+            "name": "[Prompt Prompter] High Latency (P95 > 2s)",
+            "type": "metric alert",
+            "query": "percentile(last_10m):p95:prompt.latency_ms{service:prompt-prompter} > 2000",
+            "message": "## 🐢 High Latency Alert\n\n**Service:** prompt-prompter\n**P95 Latency:** {{value}}ms\n**Threshold:** > 2000ms (2 seconds)\n\n### Impact\n- Poor user experience\n- SLO breach risk\n- Potential timeout issues\n\n### Possible Causes\n1. Vertex AI API latency\n2. Complex prompt processing\n3. Network issues\n4. Resource constraints\n\n### Actions\n1. Check Vertex AI status page\n2. Review trace spans for bottlenecks\n3. Consider scaling or caching\n\n### SLO Status\nThis affects our 99% latency < 2s SLO.\n\n@slack-performance @pagerduty-prompt-prompter",
+            "tags": [
+                "service:prompt-prompter",
+                "alert_type:latency",
+                "severity:high",
+                "slo:latency"
+            ],
+            "options": {
+                "thresholds": {
+                    "critical": 2000,
+                    "warning": 1500
+                },
+                "notify_audit": true,
+                "include_tags": true,
+                "notify_no_data": false,
+                "renotify_interval": 30
+            },
+            "priority": 1
+        },
+        {
+            "name": "[Prompt Prompter] High Hallucination Risk",
+            "type": "metric alert",
+            "query": "avg(last_5m):avg:prompt.hallucination{service:prompt-prompter} > 0.5",
+            "message": "## 🎭 High Hallucination Risk Detected\n\n**Service:** prompt-prompter\n**Current Score:** {{value}}\n**Threshold:** > 0.5\n\n### Impact\nResponses may contain fabricated or inaccurate information.\n\n### Actions\n1. Review recent responses for factual accuracy\n2. Check prompt clarity and specificity\n3. Enable stricter validation\n\n@slack-quality",
+            "tags": [
+                "service:prompt-prompter",
+                "alert_type:hallucination",
+                "severity:medium"
+            ],
+            "options": {
+                "thresholds": {
+                    "critical": 0.5,
+                    "warning": 0.3
+                },
+                "notify_audit": true,
+                "include_tags": true,
+                "notify_no_data": false
+            },
+            "priority": 2
+        },
+        {
+            "name": "[Prompt Prompter] Error Rate Spike",
+            "type": "metric alert",
+            "query": "sum(last_5m):sum:prompt.errors{service:prompt-prompter}.as_count() / sum:prompt.requests{service:prompt-prompter}.as_count() * 100 > 5",
+            "message": "## ❌ Error Rate Spike\n\n**Service:** prompt-prompter\n**Error Rate:** {{value}}%\n**Threshold:** > 5%\n\n### Actions\n1. Check error logs\n2. Review recent deployments\n3. Verify Vertex AI connectivity\n\n@pagerduty-prompt-prompter",
+            "tags": [
+                "service:prompt-prompter",
+                "alert_type:errors",
+                "severity:critical"
+            ],
+            "options": {
+                "thresholds": {
+                    "critical": 5,
+                    "warning": 2
+                },
+                "notify_audit": true,
+                "include_tags": true
+            },
+            "priority": 1
+        }
+    ]
+}

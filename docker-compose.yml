@@ -1,0 +1,70 @@
+version: "3.8"
+
+services:
+  # Datadog Agent - Required for metrics and tracing
+  datadog-agent:
+    image: gcr.io/datadoghq/agent:7
+    container_name: dd-agent
+    environment:
+      - DD_API_KEY=${DD_API_KEY}
+      - DD_SITE=${DD_SITE:-datadoghq.com}
+      - DD_APM_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_CONTAINER_EXCLUDE="name:dd-agent"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+    ports:
+      - "8126:8126" # APM traces
+      - "8125:8125/udp" # DogStatsD metrics
+    healthcheck:
+      test: [ "CMD", "agent", "health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prompt Prompter Application
+  prompt-prompter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: prompt-prompter
+    environment:
+      - DD_API_KEY=${DD_API_KEY}
+      - DD_APP_KEY=${DD_APP_KEY}
+      - DD_SITE=${DD_SITE:-datadoghq.com}
+      - DD_SERVICE=prompt-prompter
+      - DD_ENV=${DD_ENV:-dev}
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_AGENT_PORT=8126
+      - DD_DOGSTATSD_PORT=8125
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/service-account.json
+      - VERTEX_LOCATION=${VERTEX_LOCATION:-us-central1}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash-exp}
+      - HOST=0.0.0.0
+      - PORT=7860
+    volumes:
+      - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials/service-account.json:ro
+    ports:
+      - "7860:7860"
+    depends_on:
+      datadog-agent:
+        condition: service_healthy
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "python", "service": "prompt-prompter"}]'
+      com.datadoghq.ad.tags: '["env:${DD_ENV:-dev}", "version:0.1.0"]'
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:7860/health" ]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+networks:
+  default:
+    name: prompt-prompter-network

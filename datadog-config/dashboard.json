@@ -1,0 +1,289 @@
+{
+    "title": "Your Prompts Favourite Prompter - Health Dashboard",
+    "description": "Real-time monitoring of prompt analysis performance, accuracy, and optimization metrics.",
+    "widgets": [
+        {
+            "id": 1,
+            "definition": {
+                "title": "Service Health Overview",
+                "type": "group",
+                "layout_type": "ordered",
+                "widgets": [
+                    {
+                        "definition": {
+                            "title": "Accuracy Score (Avg)",
+                            "type": "query_value",
+                            "requests": [
+                                {
+                                    "q": "avg:prompt.accuracy{service:prompt-prompter}",
+                                    "aggregator": "avg"
+                                }
+                            ],
+                            "precision": 2,
+                            "custom_unit": "",
+                            "text_align": "center",
+                            "autoscale": false,
+                            "custom_links": []
+                        }
+                    },
+                    {
+                        "definition": {
+                            "title": "Total Requests",
+                            "type": "query_value",
+                            "requests": [
+                                {
+                                    "q": "sum:prompt.requests{service:prompt-prompter}.as_count()",
+                                    "aggregator": "sum"
+                                }
+                            ],
+                            "precision": 0,
+                            "text_align": "center"
+                        }
+                    },
+                    {
+                        "definition": {
+                            "title": "Error Rate",
+                            "type": "query_value",
+                            "requests": [
+                                {
+                                    "q": "sum:prompt.errors{service:prompt-prompter}.as_count() / sum:prompt.requests{service:prompt-prompter}.as_count() * 100",
+                                    "aggregator": "avg"
+                                }
+                            ],
+                            "precision": 2,
+                            "custom_unit": "%",
+                            "text_align": "center"
+                        }
+                    },
+                    {
+                        "definition": {
+                            "title": "Auto-Optimizations",
+                            "type": "query_value",
+                            "requests": [
+                                {
+                                    "q": "sum:prompt.optimizations{service:prompt-prompter}.as_count()",
+                                    "aggregator": "sum"
+                                }
+                            ],
+                            "precision": 0,
+                            "text_align": "center"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "id": 2,
+            "definition": {
+                "title": "Accuracy Score Over Time",
+                "type": "timeseries",
+                "requests": [
+                    {
+                        "q": "avg:prompt.accuracy{service:prompt-prompter}",
+                        "display_type": "line",
+                        "style": {
+                            "palette": "dog_classic",
+                            "line_type": "solid",
+                            "line_width": "normal"
+                        }
+                    }
+                ],
+                "yaxis": {
+                    "min": "0",
+                    "max": "1"
+                },
+                "markers": [
+                    {
+                        "value": "y = 0.8",
+                        "display_type": "error dashed",
+                        "label": "Accuracy Threshold (80%)"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 3,
+            "definition": {
+                "title": "Token Usage",
+                "type": "timeseries",
+                "requests": [
+                    {
+                        "q": "avg:prompt.tokens{service:prompt-prompter,type:total}",
+                        "display_type": "bars",
+                        "style": {
+                            "palette": "warm"
+                        }
+                    }
+                ],
+                "markers": [
+                    {
+                        "value": "y = 1000",
+                        "display_type": "warning dashed",
+                        "label": "Token Threshold"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 4,
+            "definition": {
+                "title": "Latency Distribution",
+                "type": "distribution",
+                "requests": [
+                    {
+                        "q": "avg:prompt.latency_ms{service:prompt-prompter}",
+                        "style": {
+                            "palette": "cool"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "id": 5,
+            "definition": {
+                "title": "Latency Percentiles",
+                "type": "timeseries",
+                "requests": [
+                    {
+                        "q": "p50:prompt.latency_ms{service:prompt-prompter}",
+                        "display_type": "line",
+                        "style": {
+                            "palette": "green"
+                        },
+                        "metadata": [
+                            {
+                                "expression": "p50:prompt.latency_ms{service:prompt-prompter}",
+                                "alias_name": "P50"
+                            }
+                        ]
+                    },
+                    {
+                        "q": "p95:prompt.latency_ms{service:prompt-prompter}",
+                        "display_type": "line",
+                        "style": {
+                            "palette": "orange"
+                        },
+                        "metadata": [
+                            {
+                                "expression": "p95:prompt.latency_ms{service:prompt-prompter}",
+                                "alias_name": "P95"
+                            }
+                        ]
+                    },
+                    {
+                        "q": "p99:prompt.latency_ms{service:prompt-prompter}",
+                        "display_type": "line",
+                        "style": {
+                            "palette": "red"
+                        },
+                        "metadata": [
+                            {
+                                "expression": "p99:prompt.latency_ms{service:prompt-prompter}",
+                                "alias_name": "P99"
+                            }
+                        ]
+                    }
+                ],
+                "markers": [
+                    {
+                        "value": "y = 2000",
+                        "display_type": "error dashed",
+                        "label": "SLO Target (2s)"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 6,
+            "definition": {
+                "title": "Hallucination Risk",
+                "type": "timeseries",
+                "requests": [
+                    {
+                        "q": "avg:prompt.hallucination{service:prompt-prompter}",
+                        "display_type": "line",
+                        "style": {
+                            "palette": "purple"
+                        }
+                    }
+                ],
+                "yaxis": {
+                    "min": "0",
+                    "max": "1"
+                }
+            }
+        },
+        {
+            "id": 7,
+            "definition": {
+                "title": "Estimated Cost (USD)",
+                "type": "timeseries",
+                "requests": [
+                    {
+                        "q": "sum:prompt.cost_usd{service:prompt-prompter}",
+                        "display_type": "area",
+                        "style": {
+                            "palette": "grey"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "id": 8,
+            "definition": {
+                "title": "Semantic Similarity",
+                "type": "timeseries",
+                "requests": [
+                    {
+                        "q": "avg:prompt.semantic_similarity{service:prompt-prompter}",
+                        "display_type": "line",
+                        "style": {
+                            "palette": "blue"
+                        }
+                    }
+                ],
+                "yaxis": {
+                    "min": "0",
+                    "max": "1"
+                }
+            }
+        },
+        {
+            "id": 9,
+            "definition": {
+                "title": "Recent Events",
+                "type": "event_stream",
+                "query": "service:prompt-prompter",
+                "event_size": "s"
+            }
+        },
+        {
+            "id": 10,
+            "definition": {
+                "title": "Monitor Status",
+                "type": "manage_status",
+                "summary_type": "monitors",
+                "display_format": "countsAndList",
+                "query": "service:prompt-prompter"
+            }
+        }
+    ],
+    "template_variables": [
+        {
+            "name": "env",
+            "default": "dev",
+            "prefix": "env"
+        },
+        {
+            "name": "service",
+            "default": "prompt-prompter",
+            "prefix": "service"
+        }
+    ],
+    "layout_type": "ordered",
+    "is_read_only": false,
+    "notify_list": [],
+    "reflow_type": "fixed"
+}
