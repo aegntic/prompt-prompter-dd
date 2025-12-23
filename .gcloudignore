@@ -1,0 +1,83 @@
+# gcloud ignore file
+# Similar to .gitignore but explicitly allows frontend/dist
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# UV
+.venv/
+uv.lock
+
+# Virtual environments
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+tests/
+
+# Google Cloud
+*.json
+!datadog-config/*.json
+service-account*.json
+sa-key.json
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Gradio
+flagged/
+
+# Git
+.git/
+.github/
+
+# Frontend source (but NOT dist - we need that!)
+frontend/node_modules/
+frontend/src/
+frontend/*.ts
+frontend/*.tsx
+frontend/*.json
+frontend/.git/
+
+# Allow frontend/dist explicitly (build output)
+!frontend/dist/
+!frontend/dist/**

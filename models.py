@@ -3,7 +3,6 @@ Pydantic models for Your Prompts Favourite Prompter API.
 Defines request/response schemas for the prompt analysis endpoints.
 """
 
-
 from pydantic import BaseModel, Field
 
 

@@ -8,12 +8,12 @@ RUN pip install uv
 WORKDIR /app
 
 # Copy dependency files first (for layer caching)
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 
 # Create virtual environment and install dependencies
 RUN uv venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
-RUN uv pip install -e .
+RUN uv pip install .
 
 # Stage 2: Runtime
 FROM python:3.11-slim AS runtime
@@ -38,6 +38,8 @@ COPY app.py .
 COPY prompt_engine.py .
 COPY models.py .
 COPY config.py .
+COPY static/ ./static/
+COPY frontend/dist/ ./frontend/dist/
 
 # Set ownership
 RUN chown -R appuser:appuser /app
@@ -49,8 +51,9 @@ USER appuser
 # These are set at runtime, not build time
 ENV DD_TRACE_ENABLED=true
 ENV DD_LOGS_INJECTION=true
-ENV DD_PROFILING_ENABLED=true
-ENV DD_APPSEC_ENABLED=true
+ENV DD_PROFILING_ENABLED=false
+ENV DD_APPSEC_ENABLED=false
+ENV DD_SITE=ap2.datadoghq.com
 
 # Expose port
 EXPOSE 7860

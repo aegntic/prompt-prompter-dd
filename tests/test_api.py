@@ -4,7 +4,6 @@ Uses TestClient for synchronous testing.
 """
 
 
-
 class TestModelsImport:
     """Test that models can be imported correctly."""
 
@@ -49,12 +48,15 @@ class TestConfigImport:
 
     def test_default_values(self):
         """Test that defaults are set correctly."""
+        import os
+
+        os.environ["DD_API_KEY"] = "test-key"
+        os.environ["GOOGLE_CLOUD_PROJECT"] = "test-project"
+        os.environ["DD_SITE"] = "datadoghq.com"
+
         from config import Settings
 
-        settings = Settings(
-            dd_api_key="test-key",
-            google_cloud_project="test-project",
-        )
+        settings = Settings()
 
         assert settings.dd_site == "datadoghq.com"
         assert settings.dd_env == "dev"

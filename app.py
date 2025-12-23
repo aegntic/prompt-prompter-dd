@@ -9,10 +9,12 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-import gradio as gr
+# import gradio as gr  # React frontend used instead
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 # Load environment variables FIRST
 load_dotenv()
@@ -204,204 +206,41 @@ async def analyze_prompt(request: AnalyzeRequest):
 
 
 # ============================================================================
-# Gradio UI
+# Static Files & React Frontend
 # ============================================================================
 
 
-def create_gradio_interface() -> gr.Blocks:
-    """Create the Gradio UI for interactive prompt analysis."""
-
-    def analyze_ui(
-        prompt: str,
-        expected_response: str | None,
-        auto_optimize: bool,
-    ) -> tuple[str, str, str, str, str]:
-        """UI handler for prompt analysis."""
-        if not prompt or not prompt.strip():
-            return "Error: Please enter a prompt", "", "", "", ""
-
-        try:
-            engine = get_engine()
-
-            # Run analysis
-            llm_response, metrics, optimization = engine.analyze(
-                prompt=prompt.strip(),
-                expected_response=expected_response.strip() if expected_response else None,
-                auto_optimize=auto_optimize,
-            )
-
-            # Format metrics display
-            metrics_display = f"""### 📊 Metrics Breakdown
-
-| Metric | Value | Status |
-|--------|-------|--------|
-| **Accuracy Score** | {metrics.accuracy_score:.2%} | {"✅" if metrics.accuracy_score >= 0.8 else "⚠️"} |
-| **Semantic Similarity** | {metrics.semantic_similarity:.2%} | {"✅" if metrics.semantic_similarity >= 0.7 else "⚠️"} |
-| **Hallucination Risk** | {metrics.hallucination_score:.2%} | {"✅" if metrics.hallucination_score <= 0.3 else "⚠️"} |
-| **Total Tokens** | {metrics.total_tokens:,} | {"✅" if metrics.total_tokens <= 1000 else "⚠️"} |
-| **Latency** | {metrics.latency_ms:.0f}ms | {"✅" if metrics.latency_ms <= 2000 else "⚠️"} |
-| **Estimated Cost** | ${metrics.estimated_cost_usd:.6f} | ℹ️ |
-"""
-
-            # Format optimization result
-            if optimization:
-                optimization_display = f"""### 🔧 Optimization Applied
-
-**Optimized Prompt:**
-```
-{optimization.optimized_prompt}
-```
-
-**Changes Made:**
-{optimization.improvement_explanation}
-
-**Expected Improvement:** +{optimization.expected_score_improvement:.1%}
-"""
-            else:
-                optimization_display = "✅ No optimization needed - score above threshold!"
-
-            return (
-                llm_response,
-                metrics_display,
-                optimization_display,
-                f"✅ Analysis complete (Score: {metrics.accuracy_score:.2%})",
-                optimization.optimized_prompt if optimization else prompt,
-            )
-
-        except Exception as e:
-            logger.error(f"UI analysis failed: {e}", exc_info=True)
-            return f"❌ Error: {str(e)}", "", "", f"❌ Failed: {str(e)}", ""
-
-    # Build the Gradio interface
-    with gr.Blocks(
-        title="Your Prompts Favourite Prompter",
-        theme=gr.themes.Soft(
-            primary_hue="blue",
-            secondary_hue="purple",
-        ),
-        css="""
-        .gradio-container { max-width: 1200px; margin: auto; }
-        .main-header { text-align: center; margin-bottom: 1rem; }
-        .main-header h1 { color: #2563eb; }
-        .metric-box { padding: 1rem; border-radius: 8px; background: #f8fafc; }
-        """,
-    ) as interface:
-        gr.Markdown(
-            """
-            # 🎯 Your Prompts Favourite Prompter
-
-            **Crafting perfect prompts, effortlessly – AI that optimizes AI.**
-
-            Enter your prompt below. We'll analyze it with Gemini, evaluate quality metrics,
-            and automatically optimize if the score is below threshold. All metrics stream
-            to Datadog in real-time.
-            """,
-            elem_classes=["main-header"],
-        )
-
-        with gr.Row():
-            with gr.Column(scale=1):
-                # Input section
-                gr.Markdown("### 📝 Input")
-                prompt_input = gr.Textbox(
-                    label="Your Prompt",
-                    placeholder="Enter the prompt you want to analyze...",
-                    lines=4,
-                    max_lines=10,
-                )
-                expected_input = gr.Textbox(
-                    label="Expected Response (Optional)",
-                    placeholder="If you have an expected/ideal response, enter it here for better accuracy scoring...",
-                    lines=3,
-                    max_lines=6,
-                )
-                auto_optimize_checkbox = gr.Checkbox(
-                    label="Auto-optimize if score below 80%",
-                    value=True,
-                )
-                analyze_btn = gr.Button("🔍 Analyze Prompt", variant="primary", size="lg")
-                status_output = gr.Textbox(label="Status", interactive=False)
-
-            with gr.Column(scale=1):
-                # Output section
-                gr.Markdown("### 🤖 LLM Response")
-                response_output = gr.Textbox(
-                    label="Gemini Response",
-                    lines=6,
-                    max_lines=12,
-                    interactive=False,
-                )
-
-        with gr.Row():
-            with gr.Column(scale=1):
-                metrics_output = gr.Markdown(
-                    label="Metrics",
-                    value="*Metrics will appear here after analysis*",
-                )
-
-            with gr.Column(scale=1):
-                optimization_output = gr.Markdown(
-                    label="Optimization",
-                    value="*Optimization suggestions will appear here*",
-                )
-
-        with gr.Accordion("📋 Optimized Prompt (Copy Ready)", open=False):
-            optimized_prompt_output = gr.Textbox(
-                label="Optimized Prompt",
-                lines=4,
-                interactive=False,
-            )
-
-        # Wire up the analyze button
-        analyze_btn.click(
-            fn=analyze_ui,
-            inputs=[prompt_input, expected_input, auto_optimize_checkbox],
-            outputs=[
-                response_output,
-                metrics_output,
-                optimization_output,
-                status_output,
-                optimized_prompt_output,
-            ],
-        )
-
-        # Example prompts
-        gr.Markdown("### 💡 Example Prompts")
-        gr.Examples(
-            examples=[
-                ["tell me about dogs", "", True],
-                ["Write code", "", True],
-                [
-                    "Explain quantum entanglement in simple terms suitable for a high school physics student, using at least one real-world analogy.",
-                    "",
-                    False,
-                ],
-                [
-                    "make website",
-                    "Create a responsive website with HTML, CSS, and JavaScript featuring a navigation bar, hero section, and contact form.",
-                    True,
-                ],
-            ],
-            inputs=[prompt_input, expected_input, auto_optimize_checkbox],
-            label="Try these examples",
-        )
-
-        gr.Markdown(
-            """
-            ---
-            **📊 Datadog Integration:** All metrics stream to Datadog in real-time:
-            `prompt.accuracy`, `prompt.tokens`, `prompt.latency_ms`, `prompt.cost_usd`
-
-            Built for the **Datadog Hackathon** 🐕 | Powered by **Vertex AI Gemini** ✨
-            """
-        )
-
-    return interface
+@app.get("/api/config")
+async def get_config():
+    """Client configuration for the frontend."""
+    return {
+        "dd_dashboard_url": "https://p.ap2.datadoghq.com/sb/e7107bb6-dedc-11f0-8f34-9215226a99ef-ebb749505e6e5f9042d09966492f9f68?tv_mode=true&theme=dark&hide_title=true",
+        "service": settings.dd_service,
+        "env": settings.dd_env,
+    }
 
 
-# Mount Gradio app
-gradio_app = create_gradio_interface()
-app = gr.mount_gradio_app(app, gradio_app, path="/")
+# Mount static files for UI assets (from static dir if needed)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Serve React frontend
+frontend_dist = os.path.join(os.path.dirname(__file__), "frontend/dist")
+if os.path.exists(frontend_dist):
+    app.mount(
+        "/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets"
+    )
+
+    @app.get("/{rest_of_path:path}")
+    async def serve_frontend(rest_of_path: str):
+        """Serve the React application."""
+        # Check if requested path is an API call
+        if rest_of_path.startswith("api/") or rest_of_path in ["analyze", "health", "config"]:
+            raise HTTPException(status_code=404)
+
+        # Serve index.html for all other routes to support React Router (if any)
+        return FileResponse(os.path.join(frontend_dist, "index.html"))
+else:
+    logger.warning(f"Frontend dist directory not found at {frontend_dist}")
 
 
 # ============================================================================

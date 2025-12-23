@@ -5,12 +5,18 @@ Loads environment variables for Datadog and Vertex AI.
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
+
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     # Datadog Configuration
     dd_api_key: str = Field(..., alias="DD_API_KEY")
@@ -21,9 +27,7 @@ class Settings(BaseSettings):
 
     # Google Cloud / Vertex AI Configuration
     google_cloud_project: str = Field(..., alias="GOOGLE_CLOUD_PROJECT")
-    google_application_credentials: str = Field(
-        default="", alias="GOOGLE_APPLICATION_CREDENTIALS"
-    )
+    google_application_credentials: str = Field(default="", alias="GOOGLE_APPLICATION_CREDENTIALS")
     vertex_location: str = Field(default="us-central1", alias="VERTEX_LOCATION")
 
     # Application Settings
@@ -43,11 +47,6 @@ class Settings(BaseSettings):
     # Pricing (per 1M tokens) - Gemini 2.0 Flash pricing
     input_price_per_million: float = Field(default=0.10)
     output_price_per_million: float = Field(default=0.40)
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        extra = "ignore"
 
 
 @lru_cache

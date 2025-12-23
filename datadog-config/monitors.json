@@ -4,11 +4,13 @@
             "name": "[Prompt Prompter] Low Accuracy Score Alert",
             "type": "metric alert",
             "query": "avg(last_5m):avg:prompt.accuracy{service:prompt-prompter} < 0.8",
-            "message": "## 🚨 Low Accuracy Detected\n\n**Service:** prompt-prompter\n**Current Score:** {{value}}\n**Threshold:** < 0.8\n\n### Impact\nPrompt quality is degraded. Users are receiving lower-quality responses.\n\n### Actions\n1. Check recent prompts in APM traces\n2. Review hallucination scores\n3. Consider enabling auto-optimization\n\n### Runbook\n- Dashboard: {{#is_alert}}https://app.datadoghq.com/dashboard/xxx{{/is_alert}}\n- Traces: Filter by `service:prompt-prompter` and `accuracy_score:<0.8`\n\n@slack-alerts @pagerduty-prompt-prompter",
+            "message": "## 🚨 Low Accuracy Detected\n\n**Service:** prompt-prompter\n**Current Score:** {{value}}\n**Threshold:** < 0.8\n\n### Impact\nPrompt quality is degraded. Users are receiving lower-quality responses.\n\n### Actions\n1. Check recent prompts in APM traces\n2. Review hallucination scores\n3. Consider enabling auto-optimization\n\n### Runbook\n- [Dashboard](https://app.datadoghq.com/dashboard/prompt-prompter-dd)\n- [APM Traces](https://app.datadoghq.com/apm/traces?query=service:prompt-prompter)\n- Filter traces by `accuracy_score:<0.8`\n\n### Context\n- **Trace ID:** {{trace_id}}\n- **Time:** {{local_time}}\n- **Environment:** {{env}}\n\n@slack-alerts @pagerduty-prompt-prompter",
             "tags": [
                 "service:prompt-prompter",
                 "alert_type:accuracy",
-                "severity:high"
+                "severity:high",
+                "team:ai-platform",
+                "env:dev"
             ],
             "options": {
                 "thresholds": {
@@ -20,19 +22,29 @@
                 "new_host_delay": 300,
                 "notify_no_data": false,
                 "renotify_interval": 60,
-                "escalation_message": "Accuracy still below threshold after 1 hour. Escalating."
+                "escalation_message": "⚠️ Accuracy still below threshold after 1 hour. Auto-creating incident for investigation.",
+                "require_full_window": false
             },
-            "priority": 2
+            "priority": 2,
+            "restricted_roles": null,
+            "incident_management": {
+                "create_incident_on_alert": true,
+                "incident_severity": "SEV-3",
+                "incident_title": "Low LLM Accuracy Detected - {{value}}",
+                "incident_description": "Automatic incident created due to accuracy score falling below 80% threshold."
+            }
         },
         {
             "name": "[Prompt Prompter] High Token Usage Alert",
             "type": "metric alert",
             "query": "avg(last_5m):avg:prompt.tokens{service:prompt-prompter,type:total} > 1000",
-            "message": "## ⚠️ High Token Usage Detected\n\n**Service:** prompt-prompter\n**Current Tokens:** {{value}}\n**Threshold:** > 1000 tokens\n\n### Impact\n- Increased API costs\n- Potentially verbose or inefficient prompts\n- May indicate prompt injection or abuse\n\n### Actions\n1. Review recent high-token requests in APM\n2. Check for prompt optimization opportunities\n3. Consider implementing token limits\n\n### Cost Estimate\nAt current rate: ~${{eval \"{{value}} * 0.0005\"}} per request\n\n@slack-cost-alerts",
+            "message": "## ⚠️ High Token Usage Detected\n\n**Service:** prompt-prompter\n**Current Tokens:** {{value}}\n**Threshold:** > 1000 tokens\n\n### Impact\n- Increased API costs (~${{eval \"{{value}} * 0.0005\"}} per request)\n- Potentially verbose or inefficient prompts\n- May indicate prompt injection or abuse\n\n### Actions\n1. Review recent high-token requests in APM\n2. Check for prompt optimization opportunities\n3. Consider implementing token limits\n\n### Runbook\n- [Cost Dashboard](https://app.datadoghq.com/dashboard/prompt-prompter-dd)\n- Review prompts with `total_tokens:>1000`\n\n@slack-cost-alerts",
             "tags": [
                 "service:prompt-prompter",
                 "alert_type:tokens",
-                "severity:medium"
+                "alert_type:cost",
+                "severity:medium",
+                "team:ai-platform"
             ],
             "options": {
                 "thresholds": {
@@ -44,18 +56,25 @@
                 "notify_no_data": false,
                 "renotify_interval": 120
             },
-            "priority": 3
+            "priority": 3,
+            "incident_management": {
+                "create_incident_on_alert": true,
+                "incident_severity": "SEV-4",
+                "incident_title": "High Token Usage - Cost Impact",
+                "incident_description": "Token usage exceeded 1000 threshold. Review for cost optimization opportunities."
+            }
         },
         {
             "name": "[Prompt Prompter] High Latency (P95 > 2s)",
             "type": "metric alert",
             "query": "percentile(last_10m):p95:prompt.latency_ms{service:prompt-prompter} > 2000",
-            "message": "## 🐢 High Latency Alert\n\n**Service:** prompt-prompter\n**P95 Latency:** {{value}}ms\n**Threshold:** > 2000ms (2 seconds)\n\n### Impact\n- Poor user experience\n- SLO breach risk\n- Potential timeout issues\n\n### Possible Causes\n1. Vertex AI API latency\n2. Complex prompt processing\n3. Network issues\n4. Resource constraints\n\n### Actions\n1. Check Vertex AI status page\n2. Review trace spans for bottlenecks\n3. Consider scaling or caching\n\n### SLO Status\nThis affects our 99% latency < 2s SLO.\n\n@slack-performance @pagerduty-prompt-prompter",
+            "message": "## 🐢 High Latency Alert\n\n**Service:** prompt-prompter\n**P95 Latency:** {{value}}ms\n**Threshold:** > 2000ms (2 seconds)\n\n### Impact\n- Poor user experience\n- SLO breach risk (99% < 2s target)\n- Potential timeout issues\n\n### Possible Causes\n1. Vertex AI API latency\n2. Complex prompt processing\n3. Network issues\n4. Resource constraints\n\n### Actions\n1. Check [Vertex AI Status](https://status.cloud.google.com/)\n2. Review trace spans for bottlenecks\n3. Consider scaling or caching\n\n### SLO Impact\n⚠️ This affects our 99% latency < 2s SLO.\n\n### Context\n- **Time:** {{local_time}}\n- **Environment:** {{env}}\n\n@slack-performance @pagerduty-prompt-prompter",
             "tags": [
                 "service:prompt-prompter",
                 "alert_type:latency",
                 "severity:high",
-                "slo:latency"
+                "slo:latency",
+                "team:ai-platform"
             ],
             "options": {
                 "thresholds": {
@@ -67,17 +86,25 @@
                 "notify_no_data": false,
                 "renotify_interval": 30
             },
-            "priority": 1
+            "priority": 1,
+            "incident_management": {
+                "create_incident_on_alert": true,
+                "incident_severity": "SEV-2",
+                "incident_title": "High Latency SLO Breach - P95: {{value}}ms",
+                "incident_description": "Latency SLO breach detected. P95 latency exceeded 2 second threshold."
+            }
         },
         {
             "name": "[Prompt Prompter] High Hallucination Risk",
             "type": "metric alert",
             "query": "avg(last_5m):avg:prompt.hallucination{service:prompt-prompter} > 0.5",
-            "message": "## 🎭 High Hallucination Risk Detected\n\n**Service:** prompt-prompter\n**Current Score:** {{value}}\n**Threshold:** > 0.5\n\n### Impact\nResponses may contain fabricated or inaccurate information.\n\n### Actions\n1. Review recent responses for factual accuracy\n2. Check prompt clarity and specificity\n3. Enable stricter validation\n\n@slack-quality",
+            "message": "## 🎭 High Hallucination Risk Detected\n\n**Service:** prompt-prompter\n**Current Score:** {{value}}\n**Threshold:** > 0.5 (50%)\n\n### Impact\n⚠️ Responses may contain fabricated or inaccurate information.\n\n### Actions\n1. Review recent responses for factual accuracy\n2. Check prompt clarity and specificity\n3. Enable stricter validation\n4. Consider adding retrieval augmentation\n\n### Runbook\n- Filter traces by `hallucination_score:>0.5`\n- Review prompt patterns that correlate with high hallucination\n\n@slack-quality",
             "tags": [
                 "service:prompt-prompter",
                 "alert_type:hallucination",
-                "severity:medium"
+                "alert_type:quality",
+                "severity:medium",
+                "team:ai-platform"
             ],
             "options": {
                 "thresholds": {
@@ -88,17 +115,24 @@
                 "include_tags": true,
                 "notify_no_data": false
             },
-            "priority": 2
+            "priority": 2,
+            "incident_management": {
+                "create_incident_on_alert": true,
+                "incident_severity": "SEV-3",
+                "incident_title": "High Hallucination Risk - Quality Degradation",
+                "incident_description": "LLM responses showing high hallucination risk. Manual review required."
+            }
         },
         {
             "name": "[Prompt Prompter] Error Rate Spike",
             "type": "metric alert",
             "query": "sum(last_5m):sum:prompt.errors{service:prompt-prompter}.as_count() / sum:prompt.requests{service:prompt-prompter}.as_count() * 100 > 5",
-            "message": "## ❌ Error Rate Spike\n\n**Service:** prompt-prompter\n**Error Rate:** {{value}}%\n**Threshold:** > 5%\n\n### Actions\n1. Check error logs\n2. Review recent deployments\n3. Verify Vertex AI connectivity\n\n@pagerduty-prompt-prompter",
+            "message": "## ❌ Error Rate Spike\n\n**Service:** prompt-prompter\n**Error Rate:** {{value}}%\n**Threshold:** > 5%\n\n### Impact\n🔴 Users are experiencing failures. Immediate action required.\n\n### Actions\n1. Check error logs for stack traces\n2. Review recent deployments\n3. Verify Vertex AI connectivity\n4. Check API quota limits\n\n### Runbook\n- [Error Logs](https://app.datadoghq.com/logs?query=service:prompt-prompter%20status:error)\n- [Recent Deployments](https://app.datadoghq.com/ci)\n- [Vertex AI Status](https://status.cloud.google.com/)\n\n### Context\n- **Time:** {{local_time}}\n- **Error Count:** {{eval \"{{value}} * total_requests / 100\"}}\n\n@pagerduty-prompt-prompter @slack-incidents",
             "tags": [
                 "service:prompt-prompter",
                 "alert_type:errors",
-                "severity:critical"
+                "severity:critical",
+                "team:ai-platform"
             ],
             "options": {
                 "thresholds": {
@@ -108,7 +142,32 @@
                 "notify_audit": true,
                 "include_tags": true
             },
-            "priority": 1
+            "priority": 1,
+            "incident_management": {
+                "create_incident_on_alert": true,
+                "incident_severity": "SEV-1",
+                "incident_title": "🔴 Critical Error Rate Spike - {{value}}%",
+                "incident_description": "Error rate exceeded 5% threshold. Service is experiencing failures."
+            }
         }
-    ]
+    ],
+    "incident_management_setup": {
+        "note": "To enable automatic incident creation from monitors:",
+        "steps": [
+            "1. Navigate to Monitors > Settings in Datadog",
+            "2. Enable 'Incident Management' integration",
+            "3. Configure default incident settings for your team",
+            "4. For each monitor, add '@incident-<team>' to notification recipients",
+            "5. Alternatively, use Datadog Workflows to create incidents on monitor alerts"
+        ],
+        "workflow_example": {
+            "trigger": "Monitor alert (ALERT status)",
+            "actions": [
+                "Create Incident with severity from monitor tags",
+                "Attach monitor context and trace links",
+                "Notify on-call via PagerDuty",
+                "Post to Slack #incidents channel"
+            ]
+        }
+    }
 }

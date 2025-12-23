@@ -93,47 +93,77 @@ Please optimize this prompt to achieve a higher accuracy score."""
     def execute_prompt(self, prompt: str) -> tuple[str, int, int, float]:
         """
         Execute a prompt using Gemini and return response with token counts.
+        Includes retry logic for rate limiting and transient errors.
 
         Returns:
             tuple: (response_text, input_tokens, output_tokens, latency_ms)
         """
-        start_time = time.perf_counter()
+        max_retries = 3
+        base_delay = 1.0  # seconds
 
-        # Execute the prompt
-        response = self.llm.invoke([HumanMessage(content=prompt)])
+        for attempt in range(max_retries):
+            start_time = time.perf_counter()
+            try:
+                # Execute the prompt
+                response = self.llm.invoke([HumanMessage(content=prompt)])
 
-        latency_ms = (time.perf_counter() - start_time) * 1000
+                latency_ms = (time.perf_counter() - start_time) * 1000
 
-        # Extract token usage from response metadata
-        usage_metadata = getattr(response, "usage_metadata", {})
-        input_tokens = usage_metadata.get("prompt_token_count", 0)
-        output_tokens = usage_metadata.get("candidates_token_count", 0)
+                # Extract token usage from response metadata
+                usage_metadata = getattr(response, "usage_metadata", {})
+                input_tokens = usage_metadata.get("prompt_token_count", 0)
+                output_tokens = usage_metadata.get("candidates_token_count", 0)
 
-        # If tokens not in metadata, estimate from content
-        if input_tokens == 0:
-            input_tokens = len(prompt.split()) * 1.3  # Rough estimate
-        if output_tokens == 0:
-            output_tokens = len(response.content.split()) * 1.3
+                # If tokens not in metadata, estimate from content
+                if input_tokens == 0:
+                    input_tokens = len(prompt.split()) * 1.3  # Rough estimate
+                if output_tokens == 0:
+                    output_tokens = len(response.content.split()) * 1.3
 
-        # Send metrics to Datadog
-        statsd.timing(
-            "prompt.latency_ms",
-            latency_ms,
-            tags=[
-                f"service:{self.settings.dd_service}",
-                f"env:{self.settings.dd_env}",
-                "operation:execute",
-            ],
-        )
-        statsd.increment(
-            "prompt.requests",
-            tags=[
-                f"service:{self.settings.dd_service}",
-                f"env:{self.settings.dd_env}",
-            ],
-        )
+                # Send metrics to Datadog
+                statsd.timing(
+                    "prompt.latency_ms",
+                    latency_ms,
+                    tags=[
+                        f"service:{self.settings.dd_service}",
+                        f"env:{self.settings.dd_env}",
+                        "operation:execute",
+                    ],
+                )
+                statsd.increment(
+                    "prompt.requests",
+                    tags=[
+                        f"service:{self.settings.dd_service}",
+                        f"env:{self.settings.dd_env}",
+                    ],
+                )
 
-        return response.content, int(input_tokens), int(output_tokens), latency_ms
+                return response.content, int(input_tokens), int(output_tokens), latency_ms
+
+            except Exception as e:
+                error_str = str(e).lower()
+                is_rate_limit = any(
+                    x in error_str for x in ["rate", "quota", "limit", "429", "resource_exhausted"]
+                )
+                is_transient = any(x in error_str for x in ["timeout", "unavailable", "503", "504"])
+
+                if (is_rate_limit or is_transient) and attempt < max_retries - 1:
+                    delay = base_delay * (2**attempt)  # Exponential backoff
+                    logger.warning(
+                        f"Retrying after {delay}s due to: {e} (attempt {attempt + 1}/{max_retries})"
+                    )
+                    statsd.increment(
+                        "prompt.retries",
+                        tags=[
+                            f"service:{self.settings.dd_service}",
+                            f"env:{self.settings.dd_env}",
+                            f"reason:{'rate_limit' if is_rate_limit else 'transient'}",
+                        ],
+                    )
+                    time.sleep(delay)
+                else:
+                    # Re-raise if not retryable or out of retries
+                    raise
 
     @tracer.wrap(service="prompt-prompter", resource="evaluate_response")
     def evaluate_response(

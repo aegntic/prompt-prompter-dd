@@ -82,6 +82,7 @@ GOOD_PROMPTS = [
 @dataclass
 class RequestResult:
     """Result of a single request."""
+
     prompt: str
     prompt_type: str  # "good" or "bad"
     accuracy_score: float
@@ -188,8 +189,7 @@ async def run_traffic_test(
             )
 
             tasks = [
-                bounded_request(client, prompt, prompt_type)
-                for prompt, prompt_type in prompts
+                bounded_request(client, prompt, prompt_type) for prompt, prompt_type in prompts
             ]
 
             for coro in asyncio.as_completed(tasks):
@@ -365,7 +365,7 @@ def main():
     elapsed = time.time() - start_time
 
     print_summary(results)
-    console.print(f"\n⏱️ Total time: {elapsed:.2f}s ({args.requests/elapsed:.1f} req/s)")
+    console.print(f"\n⏱️ Total time: {elapsed:.2f}s ({args.requests / elapsed:.1f} req/s)")
 
 
 if __name__ == "__main__":
