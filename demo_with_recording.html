@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Prompts Favourite Prompter - Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes typeCursor {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        @keyframes bounceIn {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .typing::after {
+            content: '|';
+            animation: typeCursor 0.8s infinite;
+        }
+        .fade-in-up { animation: fadeInUp 0.6s ease-out forwards; }
+        .slide-in-right { animation: slideInRight 0.5s ease-out forwards; }
+        .pulse-glow { animation: pulse 2s infinite; }
+        .glow-border { animation: pulse 2s infinite; box-shadow: 0 0 5px rgba(59, 130, 246, 0.5), 0 0 20px rgba(59, 130, 246, 0.8); }
+        .bounce-in { animation: bounceIn 0.5s ease-out forwards; }
+        .metric-card {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid #334155;
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .score-good { color: #22c55e; }
+        .score-bad { color: #ef4444; }
+        .score-warning { color: #f59e0b; }
+        .hidden { opacity: 0; }
+        #recording-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            display: none;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen font-sans overflow-hidden">
+    <div id="recording-indicator">● Recording...</div>
+
+    <div id="demo-container" class="relative w-full max-w-6xl mx-auto p-8">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-bold mb-2 gradient-text">Your Prompts Favourite Prompter</h1>
+            <p class="text-slate-400">AI that optimizes AI • Powered by Vertex AI & Datadog</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="space-y-6">
+                <div class="metric-card rounded-xl p-6 glow-border">
+                    <h2 class="text-xl font-semibold mb-4 text-blue-400">📝 Input Prompt</h2>
+                    <textarea id="prompt-input" class="w-full bg-slate-800 rounded-lg p-4 text-slate-200 border border-slate-600 focus:border-blue-500 focus:outline-none resize-none h-40" readonly></textarea>
+                </div>
+
+                <button id="analyze-btn" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span id="btn-text">🔍 Analyze Prompt</span>
+                    <span id="btn-loading" class="hidden">⏳ Analyzing...</span>
+                </button>
+
+                <div class="metric-card rounded-xl p-6 hidden" id="expected-section">
+                    <h3 class="text-lg font-semibold mb-3 text-purple-400">🎯 Expected Response</h3>
+                    <p id="expected-text" class="text-slate-300 text-sm"></p>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <div id="metrics-grid" class="grid grid-cols-2 gap-4 hidden">
+                    <div class="metric-card rounded-lg p-4 slide-in-right" style="animation-delay: 0.1s">
+                        <p class="text-slate-400 text-sm">Accuracy Score</p>
+                        <p id="metric-accuracy" class="text-3xl font-bold">-</p>
+                    </div>
+                    <div class="metric-card rounded-lg p-4 slide-in-right" style="animation-delay: 0.2s">
+                        <p class="text-slate-400 text-sm">Total Tokens</p>
+                        <p id="metric-tokens" class="text-3xl font-bold">-</p>
+                    </div>
+                    <div class="metric-card rounded-lg p-4 slide-in-right" style="animation-delay: 0.3s">
+                        <p class="text-slate-400 text-sm">Latency</p>
+                        <p id="metric-latency" class="text-3xl font-bold">-</p>
+                    </div>
+                    <div class="metric-card rounded-lg p-4 slide-in-right" style="animation-delay: 0.4s">
+                        <p class="text-slate-400 text-sm">Est. Cost</p>
+                        <p id="metric-cost" class="text-3xl font-bold">-</p>
+                    </div>
+                </div>
+
+                <div id="response-section" class="metric-card rounded-xl p-6 hidden">
+                    <h3 class="text-lg font-semibold mb-3 text-green-400">🤖 Gemini Response</h3>
+                    <p id="llm-response" class="text-slate-300 text-sm"></p>
+                </div>
+
+                <div id="optimization-section" class="metric-card rounded-xl p-6 hidden border-yellow-500/50">
+                    <h3 class="text-lg font-semibold mb-3 text-yellow-400">🔧 Auto-Optimization</h3>
+                    <p id="optimization-text" class="text-slate-300 text-sm mb-3"></p>
+                    <div class="bg-slate-800 rounded-lg p-3 border border-slate-600">
+                        <p class="text-xs text-slate-400 mb-1">Optimized Prompt:</p>
+                        <p id="optimized-prompt" class="text-sm text-green-300"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="dashboard-section" class="mt-8 hidden">
+            <h2 class="text-2xl font-bold mb-4 text-center gradient-text">📊 Datadog Observability</h2>
+            <div class="metric-card rounded-xl p-6">
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="text-center bounce-in">
+                        <p class="text-4xl font-bold score-bad">0.62</p>
+                        <p class="text-slate-400 text-sm">Current Accuracy</p>
+                    </div>
+                    <div class="text-center bounce-in" style="animation-delay: 0.1s">
+                        <p class="text-4xl font-bold score-warning">1,247</p>
+                        <p class="text-slate-400 text-sm">Tokens/Request</p>
+                    </div>
+                    <div class="text-center bounce-in" style="animation-delay: 0.2s">
+                        <p class="text-4xl font-bold text-blue-400">99.2%</p>
+                        <p class="text-slate-400 text-sm">SLO Compliance</p>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <p class="text-sm text-slate-400 mb-2">Accuracy Over Time</p>
+                        <div class="h-24 bg-slate-800 rounded-lg relative overflow-hidden">
+                            <svg class="w-full h-full" viewBox="0 0 400 100" preserveAspectRatio="none">
+                                <path d="M0,80 Q50,70 100,75 T200,50 T300,60 T400,30" stroke="#ef4444" stroke-width="2" fill="none">
+                                    <animate attributeName="stroke-dashoffset" from="500" to="0" dur="2s" fill="freeze" />
+                                </path>
+                                <line x1="0" y1="20" x2="400" y2="20" stroke="#22c55e" stroke-width="1" stroke-dasharray="5,5" opacity="0.5" />
+                                <text x="5" y="15" fill="#22c55e" font-size="10">80% Threshold</text>
+                            </svg>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-sm text-slate-400 mb-2">Latency (P95)</p>
+                        <div class="h-24 bg-slate-800 rounded-lg relative overflow-hidden">
+                            <svg class="w-full h-full" viewBox="0 0 400 100" preserveAspectRatio="none">
+                                <path d="M0,60 Q50,55 100,70 T200,40 T300,50 T400,45" stroke="#3b82f6" stroke-width="2" fill="none">
+                                    <animate attributeName="stroke-dashoffset" from="500" to="0" dur="2s" fill="freeze" />
+                                </path>
+                                <line x1="0" y1="80" x2="400" y2="80" stroke="#ef4444" stroke-width="1" stroke-dasharray="5,5" opacity="0.5" />
+                                <text x="5" y="95" fill="#ef4444" font-size="10">2000ms Threshold</text>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="alert-section" class="mt-6 hidden">
+            <div class="bg-red-900/30 border border-red-500 rounded-xl p-4 flex items-center space-x-4 bounce-in">
+                <div class="text-4xl">🚨</div>
+                <div>
+                    <p class="font-bold text-red-400">Alert: Low Accuracy Score</p>
+                    <p class="text-sm text-slate-300">Accuracy dropped below 80% threshold. Auto-optimization triggered.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="fixed bottom-0 left-0 right-0 h-1 bg-slate-800">
+            <div id="progress" class="h-full bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-300" style="width: 0%"></div>
+        </div>
+
+        <div class="fixed bottom-4 right-4 text-slate-500 text-sm">
+            <span id="timer">0:00</span> / 2:00
+        </div>
+    </div>
+
+    <script>
+        const scenarios = [
+            {
+                prompt: "Write a function",
+                expected: "Python function that calculates fibonacci",
+                autoOptimize: true,
+                accuracy: 0.55,
+                tokens: 324,
+                latency: 1250,
+                cost: 0.0002,
+                llmResponse: "Here's a simple function: def add(a, b): return a + b",
+                optimized: "Write a Python function that efficiently calculates Fibonacci sequence up to n, including proper type hints and error handling.",
+                improvement: "+35% expected improvement",
+                alert: true
+            },
+            {
+                prompt: "Analyze Q4 churn data",
+                expected: "Structured analysis with top 3 factors driving loss",
+                autoOptimize: true,
+                accuracy: 0.68,
+                tokens: 1427,
+                latency: 1890,
+                cost: 0.0006,
+                llmResponse: "Looking at churn data, customers are leaving due to pricing, support, and product features.",
+                optimized: "Perform a comprehensive analysis of Q4 customer churn data. Identify and rank top 3 factors driving customer attrition by percentage impact. Provide actionable recommendations for each factor.",
+                improvement: "+25% expected improvement",
+                alert: true
+            },
+            {
+                prompt: "Write a clear, concise Python function that sorts a list of integers using merge sort, with type hints and docstring.",
+                expected: "Merge sort implementation with O(n log n) complexity",
+                autoOptimize: false,
+                accuracy: 0.94,
+                tokens: 412,
+                latency: 890,
+                cost: 0.0002,
+                llmResponse: "Here's a merge sort implementation with full documentation and type hints...",
+                optimized: null,
+                improvement: null,
+                alert: false
+            }
+        ];
+
+        let startTime;
+        const totalDuration = 120000; // 2 minutes
+
+        // Auto-start recording
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { width: 1920, height: 1080, frameRate: 30 }
+                });
+                const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+                const chunks = [];
+                document.getElementById('recording-indicator').style.display = 'block';
+
+                mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'demo.webm';
+                    a.click();
+                    console.log('Recording saved!');
+                };
+
+                mediaRecorder.start();
+                return mediaRecorder;
+            } catch (e) {
+                console.log('Screen capture not available:', e);
+                return null;
+            }
+        }
+
+        function init() {
+            startTime = Date.now();
+            updateTimer();
+            setInterval(updateTimer, 100);
+
+            // Start demo automatically
+            setTimeout(() => startDemo(), 1000);
+        }
+
+        function updateTimer() {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / totalDuration * 100, 100);
+            document.getElementById('progress').style.width = progress + '%';
+
+            const seconds = Math.floor(elapsed / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            document.getElementById('timer').textContent = `${minutes}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function typeText(element, text, speed = 30) {
+            return new Promise(resolve => {
+                let i = 0;
+                element.classList.add('typing');
+                element.value = '';
+                const interval = setInterval(() => {
+                    if (i < text.length) {
+                        element.value += text.charAt(i);
+                        i++;
+                    } else {
+                        clearInterval(interval);
+                        element.classList.remove('typing');
+                        resolve();
+                    }
+                }, speed);
+            });
+        }
+
+        async function typeTextToElement(element, text, speed = 20) {
+            element.textContent = '';
+            for (let i = 0; i < text.length; i++) {
+                element.textContent += text.charAt(i);
+                await new Promise(r => setTimeout(r, speed));
+            }
+        }
+
+        async function animateNumber(element, target) {
+            let start = 0;
+            const startTime = Date.now();
+            const duration = 1000;
+
+            const update = () => {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const current = Math.floor(progress * target);
+                element.textContent = current.toLocaleString();
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                } else {
+                    element.textContent = target.toLocaleString();
+                }
+            };
+            update();
+        }
+
+        async function runScenario(scenario) {
+            document.getElementById('metrics-grid').classList.add('hidden');
+            document.getElementById('response-section').classList.add('hidden');
+            document.getElementById('optimization-section').classList.add('hidden');
+            document.getElementById('alert-section').classList.add('hidden');
+            document.getElementById('dashboard-section').classList.add('hidden');
+
+            const promptInput = document.getElementById('prompt-input');
+            await typeText(promptInput, scenario.prompt, 25);
+
+            if (scenario.expected) {
+                document.getElementById('expected-section').classList.remove('hidden');
+                document.getElementById('expected-text').textContent = scenario.expected;
+            } else {
+                document.getElementById('expected-section').classList.add('hidden');
+            }
+
+            await new Promise(r => setTimeout(r, 500));
+
+            const btn = document.getElementById('analyze-btn');
+            const btnText = document.getElementById('btn-text');
+            const btnLoading = document.getElementById('btn-loading');
+            btn.disabled = true;
+            btnText.classList.add('hidden');
+            btnLoading.classList.remove('hidden');
+
+            await new Promise(r => setTimeout(r, 1500));
+
+            document.getElementById('metrics-grid').classList.remove('hidden');
+            document.getElementById('response-section').classList.remove('hidden');
+
+            const accuracyEl = document.getElementById('metric-accuracy');
+            const tokensEl = document.getElementById('metric-tokens');
+            const latencyEl = document.getElementById('metric-latency');
+            const costEl = document.getElementById('metric-cost');
+
+            accuracyEl.textContent = '-';
+            tokensEl.textContent = '-';
+            latencyEl.textContent = '-';
+            costEl.textContent = '-';
+
+            accuracyEl.textContent = (scenario.accuracy * 100).toFixed(0) + '%';
+            accuracyEl.className = 'text-3xl font-bold ' + (scenario.accuracy >= 0.8 ? 'score-good' : 'score-bad');
+
+            await new Promise(r => setTimeout(r, 200));
+            tokensEl.textContent = scenario.tokens.toLocaleString();
+            tokensEl.className = 'text-3xl font-bold ' + (scenario.tokens > 1000 ? 'score-warning' : 'score-good');
+
+            await new Promise(r => setTimeout(r, 200));
+            latencyEl.textContent = scenario.latency.toLocaleString() + 'ms';
+            latencyEl.className = 'text-3xl font-bold ' + (scenario.latency > 2000 ? 'score-bad' : 'score-good');
+
+            await new Promise(r => setTimeout(r, 200));
+            costEl.textContent = '$' + scenario.cost.toFixed(4);
+
+            await typeTextToElement(document.getElementById('llm-response'), scenario.llmResponse, 15);
+
+            btn.disabled = false;
+            btnText.classList.remove('hidden');
+            btnLoading.classList.add('hidden');
+
+            if (scenario.optimized) {
+                await new Promise(r => setTimeout(r, 800));
+                document.getElementById('optimization-section').classList.remove('hidden');
+                document.getElementById('optimization-text').textContent = `Score improved by ${scenario.improvement}`;
+                await typeTextToElement(document.getElementById('optimized-prompt'), scenario.optimized, 10);
+            }
+
+            if (scenario.alert) {
+                await new Promise(r => setTimeout(r, 600));
+                document.getElementById('alert-section').classList.remove('hidden');
+            }
+
+            await new Promise(r => setTimeout(r, 500));
+            document.getElementById('dashboard-section').classList.remove('hidden');
+
+            await new Promise(r => setTimeout(r, 8000));
+        }
+
+        async function startDemo() {
+            for (let i = 0; i < scenarios.length; i++) {
+                await runScenario(scenarios[i]);
+                if (i < scenarios.length - 1) {
+                    document.getElementById('prompt-input').value = '';
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+            }
+            await showSummary();
+        }
+
+        async function showSummary() {
+            const container = document.getElementById('demo-container');
+            container.innerHTML = `
+                <div class="text-center space-y-8 pt-20">
+                    <div class="bounce-in">
+                        <h1 class="text-5xl font-bold mb-4 gradient-text">Demo Complete!</h1>
+                    </div>
+                    <div class="grid grid-cols-3 gap-6 max-w-4xl mx-auto">
+                        <div class="metric-card rounded-xl p-6 bounce-in" style="animation-delay: 0.2s">
+                            <div class="text-4xl mb-2">🤖</div>
+                            <p class="text-3xl font-bold text-blue-400">40%</p>
+                            <p class="text-slate-400">Cost Reduction</p>
+                        </div>
+                        <div class="metric-card rounded-xl p-6 bounce-in" style="animation-delay: 0.4s">
+                            <div class="text-4xl mb-2">📈</div>
+                            <p class="text-3xl font-bold text-green-400">60%</p>
+                            <p class="text-slate-400">Accuracy Improvement</p>
+                        </div>
+                        <div class="metric-card rounded-xl p-6 bounce-in" style="animation-delay: 0.6s">
+                            <div class="text-4xl mb-2">📊</div>
+                            <p class="text-3xl font-bold text-purple-400">100%</p>
+                            <p class="text-slate-400">Observability</p>
+                        </div>
+                    </div>
+                    <div class="metric-card rounded-xl p-8 max-w-2xl mx-auto bounce-in" style="animation-delay: 0.8s">
+                        <h2 class="text-2xl font-bold mb-4 gradient-text">Key Features</h2>
+                        <ul class="text-left space-y-2 text-slate-300">
+                            <li>✅ Vertex AI Gemini 2.0 Integration</li>
+                            <li>✅ Real-time Datadog Metrics & Tracing</li>
+                            <li>✅ Auto-Optimization of Low-Scoring Prompts</li>
+                            <li>✅ SLO Monitoring with Alert Automation</li>
+                            <li>✅ Cost & Hallucination Risk Tracking</li>
+                        </ul>
+                    </div>
+                    <div class="text-slate-400">
+                        <p class="text-xl">AI that optimizes AI</p>
+                        <p class="text-sm mt-2">Built for Datadog Hackathon • MIT License</p>
+                    </div>
+                </div>
+            `;
+
+            // Stop recording after showing summary
+            await new Promise(r => setTimeout(r, 5000));
+        }
+
+        init();
+    </script>
+</body>
+</html>

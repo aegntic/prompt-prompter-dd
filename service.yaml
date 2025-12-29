@@ -1,0 +1,50 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: prompt-prompter
+  namespace: '668100993008'
+  labels:
+    cloud.googleapis.com/location: us-central1
+  annotations:
+    run.googleapis.com/launch-stage: BETA
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: '3'
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      containerConcurrency: 80
+      containers:
+      - image: gcr.io/prompt-prompter-dd/prompt-prompter:latest
+        ports:
+        - containerPort: 8080
+          name: http1
+        resources:
+          limits:
+            cpu: '1'
+            memory: 1Gi
+        env:
+        - name: DD_API_KEY
+          value: 45a4caf9d1d0bf0fe75d6ce190b1b18e
+        - name: DD_SITE
+          value: ap2.datadoghq.com
+        - name: GOOGLE_CLOUD_PROJECT
+          value: prompt-prompter-dd
+        - name: DD_SERVICE
+          value: prompt-prompter
+        - name: DD_ENV
+          value: production
+        - name: DD_VERSION
+          value: 1.0.0
+        startupProbe:
+          tcpSocket:
+            port: 8080
+          timeoutSeconds: 240
+          periodSeconds: 240
+          failureThreshold: 1
+      serviceAccountName: 668100993008-compute@developer.gserviceaccount.com
+      timeoutSeconds: 300
+  traffic:
+  - latestRevision: true
+    percent: 100

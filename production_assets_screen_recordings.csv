@@ -1,0 +1,6 @@
+ID,Take Name,Target Duration,Clips to Extract,Script Coverage,Status,Notes
+REC-01,App Demo,~25s,4-5 clips,"App walkthrough, GitHub, landing, prompt list, run execution",⬜,Core product demo
+REC-02,Metrics Deep,~25s,4-5 clips,"Embedded dashboard, Datadog sync, traces, token counts",⬜,Observability features
+REC-03,Monitors,~20s,3-4 clips,"3 monitor types, SLO page, threshold setup",⬜,Alerting system
+REC-04,Incident,~20s,3-4 clips,"Incident view, runbook, alert sequence",⬜,Response flow
+REC-05,Healing,~22s,4-5 clips,"Failure → auto-heal → diff view → step function",⬜,Self-healing demo

@@ -45,7 +45,7 @@ COPY frontend/dist/ ./frontend/dist/
 RUN chown -R appuser:appuser /app
 
 # Switch to non-root user
-USER appuser
+# USER appuser
 
 # Environment variables for Datadog Agent
 # These are set at runtime, not build time
@@ -61,6 +61,12 @@ EXPOSE 7860
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:7860/health || exit 1
+
+# Copy Datadog serverless-init from the official image
+COPY --from=gcr.io/datadoghq/serverless-init:1 /datadog-init /app/datadog-init
+
+# Enable Datadog Serverless Init
+ENTRYPOINT ["/app/datadog-init"]
 
 # Run the application
 CMD ["python", "app.py"]

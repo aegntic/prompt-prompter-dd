@@ -214,7 +214,7 @@ async def analyze_prompt(request: AnalyzeRequest):
 async def get_config():
     """Client configuration for the frontend."""
     return {
-        "dd_dashboard_url": "https://p.ap2.datadoghq.com/sb/e7107bb6-dedc-11f0-8f34-9215226a99ef-ebb749505e6e5f9042d09966492f9f68?tv_mode=true&theme=dark&hide_title=true",
+        "dd_dashboard_url": "https://p.ap2.datadoghq.com/sb/e7107bb6-dedc-11f0-8f34-9215226a99ef-ebb749505e6e5f9042d09966492f9f68?theme=dark&hide_title=true",
         "service": settings.dd_service,
         "env": settings.dd_env,
     }

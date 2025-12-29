@@ -3,9 +3,9 @@ import React from 'react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ScatterChart, Scatter } from 'recharts';
 import { MetricPoint } from '../types';
 
-export const MainChart: React.FC<{ data: MetricPoint[] }> = ({ data }) => {
+export const MainChart: React.FC<{ data: MetricPoint[]; compact?: boolean }> = ({ data, compact }) => {
   return (
-    <div className="h-64 w-full bg-slate-50/50 dark:bg-slate-950/40 rounded-lg border border-slate-200 dark:border-blue-900/30 p-2 overflow-hidden relative shadow-inner">
+    <div className={`${compact ? 'h-40' : 'h-64'} w-full bg-slate-50/50 dark:bg-slate-950/40 rounded-lg border border-slate-200 dark:border-blue-900/30 p-2 overflow-hidden relative shadow-inner`}>
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.05),transparent)] dark:bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent)]"></div>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 20, right: 30, left: -20, bottom: 20 }}>

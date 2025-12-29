@@ -1,0 +1,19 @@
+Phase,Task,Owner,Status,Due
+Pre-Production,Finalize script,—,✅,—
+Pre-Production,Finalize shot list,—,✅,—
+Pre-Production,Generate image prompts,—,✅,—
+Pre-Production,Generate video prompts,—,✅,—
+Image Generation,Generate GEN-01 through GEN-10,—,⬜,—
+Image Generation,Review/iterate images,—,⬜,—
+Video Generation,Generate video from each image,—,⬜,—
+Video Generation,Review/iterate videos,—,⬜,—
+Screen Recording,Record Take 01 (App),—,⬜,—
+Screen Recording,Record Take 02 (Metrics),—,⬜,—
+Screen Recording,Record Take 03 (Monitors),—,⬜,—
+Screen Recording,Record Take 04 (Incident),—,⬜,—
+Screen Recording,Record Take 05 (Healing),—,⬜,—
+Post-Production,Rough cut assembly,—,⬜,—
+Post-Production,VO recording,—,⬜,—
+Post-Production,Music/SFX,—,⬜,—
+Post-Production,Color grade,—,⬜,—
+Post-Production,Final export,—,⬜,—

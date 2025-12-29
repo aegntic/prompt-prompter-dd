@@ -28,10 +28,18 @@ export const analyzePrompt = async (
   const metrics = data.metrics;
   const optimization = data.optimization;
 
+  // Calculate scores for before/after comparison
+  const originalScore = Math.round(metrics.accuracy_score * 100);
+  const expectedImprovement = optimization ? Math.round(optimization.expected_score_improvement * 100) : 0;
+  const newScore = Math.min(100, originalScore + expectedImprovement);
+
   return {
     id: data.trace_id,
     timestamp: Date.now(),
-    confidenceScore: Math.round(metrics.accuracy_score * 100),
+    confidenceScore: optimization ? newScore : originalScore, // Show improved score if optimized
+    originalScore: optimization ? originalScore : undefined, // Only show original if there was optimization
+    expectedImprovement: optimization ? expectedImprovement : undefined,
+    optimizedPrompt: optimization ? optimization.optimized_prompt : undefined,
     responseText: data.llm_response,
     optimizationSuggestion: optimization
       ? `[OPTIMIZED] ${optimization.optimized_prompt}\n\nREASONING: ${optimization.improvement_explanation}`

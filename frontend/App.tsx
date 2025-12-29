@@ -306,7 +306,7 @@ const App: React.FC = () => {
 
             {/* Results Section - Full Width when collapsed */}
             <div className={`transition-all duration-500 ${isInputCollapsed ? '' : 'lg:grid lg:grid-cols-2 lg:gap-8'}`}>
-              {/* Performance Profile */}
+              {/* Performance Profile - Side by Side Layout */}
               <div className="bg-white/80 dark:bg-slate-900/40 backdrop-blur-md p-6 rounded-2xl border border-slate-200 dark:border-blue-900/40 shadow-xl dark:shadow-2xl relative mb-6 lg:mb-0">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-slate-700 dark:text-blue-400 font-tech uppercase tracking-wider text-sm">Prompt Performance Profile</h3>
@@ -323,20 +323,64 @@ const App: React.FC = () => {
                   )}
                 </div>
 
-                <MainChart data={result?.metrics || defaultMetrics} />
+                {/* SIDE BY SIDE: Results LEFT, Graph RIGHT */}
+                <div className="flex gap-6 items-stretch">
+                  {/* LEFT: Before/After or Overall Strength */}
+                  <div className="w-72 flex-shrink-0">
+                    {result?.autoOptimized && result?.originalScore !== undefined ? (
+                      <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-blue-900/30 p-4 rounded-xl shadow-inner h-full flex flex-col justify-center">
+                        <h4 className="text-xs text-slate-500 dark:text-blue-500 font-tech mb-3 uppercase text-center">
+                          🎯 Auto-Optimization Result
+                        </h4>
+                        <div className="flex items-center justify-center gap-4">
+                          {/* Original Score */}
+                          <div className="text-center">
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-tech uppercase block mb-1">Before</span>
+                            <div className="relative">
+                              <div className="w-16 h-16 rounded-full border-3 border-red-400/50 dark:border-red-600/50 flex items-center justify-center bg-red-50 dark:bg-red-950/30">
+                                <span className="text-lg font-bold text-red-600 dark:text-red-400">{result.originalScore}%</span>
+                              </div>
+                              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 text-[8px] px-1.5 py-0.5 rounded-full font-tech">
+                                LOW
+                              </div>
+                            </div>
+                          </div>
 
-                {/* Overall Strength - Prominent when collapsed */}
-                <div className={`mt-6 ${isInputCollapsed ? 'flex items-center justify-center gap-8' : ''}`}>
-                  <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-blue-900/30 p-6 rounded-xl flex flex-col items-center justify-center overflow-hidden shadow-inner">
-                    <h4 className="text-xs text-slate-500 dark:text-blue-500 font-tech mb-2 uppercase">Overall Strength</h4>
-                    <RadialProgressBar score={result?.confidenceScore || 0} loading={loading} />
+                          {/* Arrow */}
+                          <div className="flex flex-col items-center">
+                            <svg className="w-6 h-6 text-green-500 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M5 12h14m-7-7l7 7-7 7" />
+                            </svg>
+                            <span className="text-[10px] text-green-600 dark:text-green-400 font-tech">+{result.expectedImprovement}%</span>
+                          </div>
+
+                          {/* Improved Score */}
+                          <div className="text-center">
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-tech uppercase block mb-1">After</span>
+                            <div className="relative">
+                              <div className="w-16 h-16 rounded-full border-3 border-green-400/50 dark:border-green-600/50 flex items-center justify-center bg-green-50 dark:bg-green-950/30 ring-2 ring-green-400/20 animate-pulse">
+                                <span className="text-lg font-bold text-green-600 dark:text-green-400">{result.confidenceScore}%</span>
+                              </div>
+                              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 text-[8px] px-1.5 py-0.5 rounded-full font-tech">
+                                OPTIMIZED
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Standard score display when no optimization */
+                      <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-blue-900/30 p-4 rounded-xl flex flex-col items-center justify-center shadow-inner h-full">
+                        <h4 className="text-xs text-slate-500 dark:text-blue-500 font-tech mb-2 uppercase">Overall Strength</h4>
+                        <RadialProgressBar score={result?.confidenceScore || 0} loading={loading} />
+                      </div>
+                    )}
                   </div>
-                  {isInputCollapsed && (
-                    <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-blue-900/30 p-4 rounded-xl shadow-inner flex-1">
-                      <h4 className="text-xs text-slate-500 dark:text-blue-500 font-tech mb-2 uppercase">Scatter Overview</h4>
-                      <MetricsMiniChart data={result?.metrics || defaultMetrics} />
-                    </div>
-                  )}
+
+                  {/* RIGHT: Graph */}
+                  <div className="flex-1">
+                    <MainChart data={result?.metrics || defaultMetrics} compact={true} />
+                  </div>
                 </div>
               </div>
 
@@ -350,7 +394,7 @@ const App: React.FC = () => {
                     <h4 className="text-xs text-slate-500 dark:text-blue-500 font-tech uppercase">Response Text</h4>
                     {result?.responseText && <CopyButton text={result.responseText} />}
                   </div>
-                  <div className={`text-sm text-slate-700 dark:text-slate-300 overflow-y-auto font-mono scrollbar-hide ${isInputCollapsed ? 'h-40' : 'h-24'}`}>
+                  <div className={`text-sm text-slate-700 dark:text-slate-300 overflow-y-auto font-mono scrollbar-hide ${isInputCollapsed ? 'h-20' : 'h-16'}`}>
                     {loading ? 'Calculating...' : result?.responseText || 'Awaiting analysis...'}
                   </div>
                 </div>
@@ -361,17 +405,12 @@ const App: React.FC = () => {
                     <h4 className="text-xs text-slate-500 dark:text-blue-500 font-tech uppercase">Optimization Suggestion</h4>
                     {result?.optimizationSuggestion && <CopyButton text={result.optimizationSuggestion} />}
                   </div>
-                  <div className={`text-sm text-blue-700 dark:text-blue-300 font-medium overflow-y-auto ${isInputCollapsed ? 'h-40' : 'h-24'}`}>
+                  <div className={`text-sm text-blue-700 dark:text-blue-300 font-medium overflow-y-auto ${isInputCollapsed ? 'h-20' : 'h-16'}`}>
                     {loading ? 'Generating suggestions...' : result?.optimizationSuggestion || 'N/A'}
                   </div>
                 </div>
 
-                {!isInputCollapsed && (
-                  <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-blue-900/30 p-4 rounded-xl shadow-inner mt-4">
-                    <h4 className="text-xs text-slate-500 dark:text-blue-500 font-tech mb-2 uppercase">Scatter Overview</h4>
-                    <MetricsMiniChart data={result?.metrics || defaultMetrics} />
-                  </div>
-                )}
+
               </div>
             </div>
           </div>
