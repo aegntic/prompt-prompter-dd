@@ -61,4 +61,11 @@ logs/
 Thumbs.db
 
 # Gradio
+
+# Gradio
 flagged/
+
+# Demo Recording
+demo-recorder/chrome_data/
+demo_production/rec/
+demo_production/output/
