@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     # Application Settings
     host: str = Field(default="0.0.0.0", alias="HOST")
-    port: int = Field(default=7860, alias="PORT")
+    port: int = Field(default=8080, alias="PORT")
     debug: bool = Field(default=False, alias="DEBUG")
 
     # Model Configuration

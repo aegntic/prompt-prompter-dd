@@ -62,11 +62,11 @@ ENV DD_APPSEC_ENABLED=false
 ENV DD_SITE=ap2.datadoghq.com
 
 # Expose port
-EXPOSE 7860
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:7860/health || exit 1
+    CMD curl -f http://localhost:8080/health || exit 1
 
 # Copy Datadog serverless-init from the official image
 COPY --from=gcr.io/datadoghq/serverless-init:1 /datadog-init /app/datadog-init
