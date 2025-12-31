@@ -1,4 +1,4 @@
-# Your Prompts Favourite Prompter (YPFP)
+# Prompt-Prompter - your prompts favourite prompter 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Deployed on Cloud Run](https://img.shields.io/badge/Deployed%20on-Cloud%20Run-4285F4?logo=google-cloud&logoColor=white)](https://prompt-prompter-668100993008.us-central1.run.app)
@@ -17,7 +17,7 @@
 
 ## Overview
 
-**Your Prompts Favourite Prompter** is an intelligent prompt debugger that doesn't just monitor – it **heals**. Built for the Datadog Hackathon, this tool:
+**Prompt-prompter** is an intelligent prompt debugger that doesn't just monitor – it **heals**. Built for the Datadog Hackathon, this tool:
 
 1. **Executes** your prompt with Vertex AI Gemini
 2. **Analyzes** the response (accuracy, hallucination risk, cost)
