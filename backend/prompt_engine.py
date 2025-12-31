@@ -15,8 +15,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
 from sklearn.metrics.pairwise import cosine_similarity
 
-from config import get_settings
-from models import MetricsBreakdown, OptimizationResult
+from backend.config import get_settings
+from backend.models import MetricsBreakdown, OptimizationResult
 
 logger = logging.getLogger(__name__)
 
