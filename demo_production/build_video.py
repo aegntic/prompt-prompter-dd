@@ -1,5 +1,5 @@
-import subprocess
 import os
+import subprocess
 
 BASE_DIR = "/home/ae/AE/04_Hackathon/Datadog-YPFP"
 CLIPS_DIR = os.path.join(BASE_DIR, "demo_clips")
@@ -37,18 +37,30 @@ TIMELINE = [
     (os.path.join(CLIPS_DIR, "datadawgg.mp4"), 10.0),
 ]
 
+
 def build_video():
     scaled_clips = []
     for i, (path, duration) in enumerate(TIMELINE):
         scaled_path = os.path.join(WORK_DIR, f"clip_{i:02d}_final.mp4")
         print(f"Processing {path} -> {scaled_path} ({duration}s)...")
         cmd = [
-            "ffmpeg", "-y", "-i", path,
-            "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
-            "-t", f"{duration:.3f}",
-            "-r", "24",
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
-            scaled_path
+            "ffmpeg",
+            "-y",
+            "-i",
+            path,
+            "-vf",
+            "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
+            "-t",
+            f"{duration:.3f}",
+            "-r",
+            "24",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "18",
+            scaled_path,
         ]
         subprocess.run(cmd, check=True)
         scaled_clips.append(scaled_path)
@@ -61,31 +73,78 @@ def build_video():
     video_only = os.path.join(WORK_DIR, "video_only_final.mp4")
     print("Merging video...")
     cmd = [
-        "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", playlist_path,
-        "-c", "copy", video_only
+        "ffmpeg",
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        playlist_path,
+        "-c",
+        "copy",
+        video_only,
     ]
     subprocess.run(cmd, check=True)
 
     audio_path = os.path.join(WORK_DIR, "voiceover_fast.mp3")
     print("Final mix...")
     cmd = [
-        "ffmpeg", "-y", "-i", video_only, "-i", audio_path,
-        "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
-        "-map", "0:v:0", "-map", "-shortest", # Error fixed: shortest needs to be at the end or mapped
+        "ffmpeg",
+        "-y",
+        "-i",
+        video_only,
+        "-i",
+        audio_path,
+        "-c:v",
+        "copy",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "192k",
+        "-map",
+        "0:v:0",
+        "-map",
+        "-shortest",  # Error fixed: shortest needs to be at the end or mapped
         OUTPUT_FILE,
-        "-shortest" # This flag should be at the end of output options
+        "-shortest",  # This flag should be at the end of output options
     ]
     # Fixed ffmpeg command for mix
     cmd = [
-        "ffmpeg", "-y", "-i", video_only, "-i", audio_path,
-        "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
-        "-shortest", OUTPUT_FILE
+        "ffmpeg",
+        "-y",
+        "-i",
+        video_only,
+        "-i",
+        audio_path,
+        "-c:v",
+        "copy",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "192k",
+        "-shortest",
+        OUTPUT_FILE,
     ]
     subprocess.run(cmd, check=True)
-    
-    res = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", OUTPUT_FILE], capture_output=True, text=True)
+
+    res = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            OUTPUT_FILE,
+        ],
+        capture_output=True,
+        text=True,
+    )
     print(f"DONE! Final video: {OUTPUT_FILE}")
     print(f"Duration: {res.stdout.strip()}s")
+
 
 if __name__ == "__main__":
     build_video()
