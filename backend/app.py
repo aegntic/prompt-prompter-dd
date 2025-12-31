@@ -237,7 +237,11 @@ async def get_config():
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Serve React frontend
-frontend_dist = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend/dist")
+# Check both possible locations: local dev and Docker build
+frontend_dist_local = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend/dist")
+frontend_dist_docker = os.path.join(os.path.dirname(__file__), "frontend/dist")
+frontend_dist = frontend_dist_docker if os.path.exists(frontend_dist_docker) else frontend_dist_local
+
 if os.path.exists(frontend_dist):
     app.mount(
         "/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets"
