@@ -48,9 +48,11 @@ htmlcov/
 .nox/
 
 # Google Cloud
-*.json
+# *.json <- REMOVED: prevents tracking package.json
 !datadog-config/*.json
 service-account*.json
+# Ignore specific google credentials if not covered by service-account*.json
+gcp-*.json
 
 # Logs
 *.log
