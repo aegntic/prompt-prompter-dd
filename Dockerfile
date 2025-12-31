@@ -42,13 +42,10 @@ COPY --from=backend-builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy application code
-COPY app.py .
-COPY prompt_engine.py .
-COPY models.py .
-COPY config.py .
+COPY backend/ ./backend/
 COPY static/ ./static/
 # Copy built frontend assets
-COPY --from=frontend-builder /app/frontend/dist/ ./frontend/dist/
+COPY --from=frontend-builder /app/frontend/dist/ ./backend/frontend/dist/
 
 # Set ownership
 RUN chown -R appuser:appuser /app
@@ -78,4 +75,4 @@ COPY --from=gcr.io/datadoghq/serverless-init:1 /datadog-init /app/datadog-init
 ENTRYPOINT ["/app/datadog-init"]
 
 # Run the application
-CMD ["python", "app.py"]
+CMD ["python", "-m", "backend.app"]

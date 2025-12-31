@@ -3,7 +3,7 @@
  * Replaces mock services with real backend calls
  */
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:7860';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 export interface ScoreBreakdown {
     specificity: number;

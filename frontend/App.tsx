@@ -227,6 +227,7 @@ const App: React.FC = () => {
   // Demo Controller
   useEffect(() => {
     if (!demoState.isActive) return;
+    let isCancelled = false;
 
     const stepData = DEMO_STEPS[demoState.step];
     if (stepData.tab) setActiveTab(stepData.tab);
@@ -235,16 +236,19 @@ const App: React.FC = () => {
       if (stepData.prompt) {
         let currentText = "";
         for (const char of stepData.prompt) {
+          if (isCancelled) return;
           currentText += char;
           setInputPrompt(currentText);
           await new Promise(r => setTimeout(r, 40));
         }
       }
 
+      if (isCancelled) return;
       if (stepData.action === 'analyze') {
         await handleAnalyze();
       }
 
+      if (isCancelled) return;
       if (stepData.action === 'remediate') {
         if (currentResult?.optimization) {
           setInputPrompt(currentResult.optimization.optimized_prompt);
@@ -252,8 +256,10 @@ const App: React.FC = () => {
         }
       }
 
+      if (isCancelled) return;
       if (demoState.isAuto) {
         setTimeout(() => {
+          if (isCancelled) return;
           if (demoState.step < DEMO_STEPS.length - 1) {
             setDemoState(prev => ({ ...prev, step: prev.step + 1 }));
           } else {
@@ -264,11 +270,14 @@ const App: React.FC = () => {
     };
 
     runStep();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [demoState.isActive, demoState.step]);
 
   const handleClearData = () => {
     if (confirm("Confirm absolute system purge? All templates and history will be deleted.")) {
-      setHistory([]);
       setTemplates([]);
       localStorage.clear();
       window.location.reload();
