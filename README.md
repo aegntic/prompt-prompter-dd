@@ -1,4 +1,10 @@
-# Your Prompts Favourite Prompter
+# Your Prompts Favourite Prompter (YPFP)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Deployed on Cloud Run](https://img.shields.io/badge/Deployed%20on-Cloud%20Run-4285F4?logo=google-cloud&logoColor=white)](https://prompt-prompter-668100993008.us-central1.run.app)
+
+**Hosted Project**: [https://prompt-prompter-668100993008.us-central1.run.app](https://prompt-prompter-668100993008.us-central1.run.app)
+**Code Repository**: [https://github.com/aegntic/prompt-prompter-dd](https://github.com/aegntic/prompt-prompter-dd)
 
 > **"Crafting perfect prompts, effortlessly – AI that optimizes AI."**
 

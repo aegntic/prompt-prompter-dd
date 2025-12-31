@@ -205,6 +205,13 @@ async def analyze_prompt(request: AnalyzeRequest):
         ) from e
 
 
+# Alias for frontend API calls
+@app.post("/api/analyze", response_model=AnalyzeResponse, tags=["Analysis"])
+async def api_analyze_prompt(request: AnalyzeRequest):
+    """API prefix alias for analyze endpoint."""
+    return await analyze_prompt(request)
+
+
 # ============================================================================
 # Static Files & React Frontend
 # ============================================================================
