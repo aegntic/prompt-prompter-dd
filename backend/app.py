@@ -237,11 +237,16 @@ async def get_config():
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Serve React frontend
-frontend_dist = os.path.join(os.path.dirname(__file__), "frontend/dist")
+frontend_dist = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend/dist")
 if os.path.exists(frontend_dist):
     app.mount(
         "/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets"
     )
+
+    @app.get("/")
+    async def serve_root():
+        """Serve the React application root."""
+        return FileResponse(os.path.join(frontend_dist, "index.html"))
 
     @app.get("/{rest_of_path:path}")
     async def serve_frontend(rest_of_path: str):
