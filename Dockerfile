@@ -1,5 +1,13 @@
-# Stage 1: Build with UV
-FROM python:3.11-slim AS builder
+# Stage 1: Build Frontend with Bun
+FROM oven/bun:1-slim AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN bun install
+COPY frontend/ ./
+RUN bun run build
+
+# Stage 2: Build Backend with UV
+FROM python:3.11-slim AS backend-builder
 
 # Install UV
 RUN pip install uv
@@ -15,7 +23,7 @@ RUN uv venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 RUN uv pip install .
 
-# Stage 2: Runtime
+# Stage 3: Runtime
 FROM python:3.11-slim AS runtime
 
 # Install runtime dependencies
@@ -29,8 +37,8 @@ RUN useradd --create-home --shell /bin/bash appuser
 # Set working directory
 WORKDIR /app
 
-# Copy virtual environment from builder
-COPY --from=builder /app/.venv /app/.venv
+# Copy virtual environment from transformer
+COPY --from=backend-builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy application code
@@ -39,7 +47,8 @@ COPY prompt_engine.py .
 COPY models.py .
 COPY config.py .
 COPY static/ ./static/
-COPY frontend/dist/ ./frontend/dist/
+# Copy built frontend assets
+COPY --from=frontend-builder /app/frontend/dist/ ./frontend/dist/
 
 # Set ownership
 RUN chown -R appuser:appuser /app

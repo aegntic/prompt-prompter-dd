@@ -1,457 +1,652 @@
 
-import React, { useState, useEffect } from 'react';
-import { analyzePrompt } from './services/geminiService';
-import { AnalysisResult, PromptExample } from './types';
-import { DatadogLogo, GeminiLogo } from './components/Icons';
-import ExampleTable from './components/ExampleTable';
-import { MainChart, MetricsMiniChart, RadialProgressBar } from './components/Visualization';
-import HistorySidebar from './components/HistorySidebar';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  Sparkles, Terminal, Zap, Settings, RefreshCw, Trash2,
+  ChevronRight, ShieldCheck, Cpu, Activity, History as HistoryIcon,
+  Layout, BarChart3, Database, Clock, Crosshair, Target, Dna, Hexagon,
+  Cloud, Dog, Server, RotateCcw, Cpu as CpuIcon, ShieldAlert, Binary, Eye, X, Play, MousePointer2, Info, ArrowRight, CheckCircle, Loader2
+} from 'lucide-react';
+import { TabType, AnalysisResult, PromptTemplate, TemplateVersion } from './types';
+import { NAV_ITEMS, SAMPLE_PROMPTS, AVAILABLE_MODELS } from './constants';
+import { runAnalysis } from './services/geminiService';
+import { datadog } from './services/datadogService';
+import AnalysisDisplay from './components/AnalysisDisplay';
+import MetricsTab from './components/MetricsTab';
+import TemplateManager from './components/TemplateManager';
 
-const downloadFile = (content: string, fileName: string, contentType: string) => {
-  const a = document.createElement("a");
-  const file = new Blob([content], { type: contentType });
-  a.href = URL.createObjectURL(file);
-  a.download = fileName;
-  a.click();
-};
+// Tooltip Component
+const Tooltip: React.FC<{ text: string; children: React.ReactNode }> = ({ text, children }) => {
+  const [visible, setVisible] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
 
-const CopyButton: React.FC<{ text: string }> = ({ text }) => {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy text: ', err);
-    }
+  const handleMouseMove = (e: React.MouseEvent) => {
+    setPosition({ x: e.clientX + 15, y: e.clientY + 15 });
   };
 
   return (
-    <button
-      onClick={handleCopy}
-      title="Copy to clipboard"
-      className="p-1.5 rounded-md hover:bg-blue-500/10 dark:hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 transition-all flex items-center gap-1 group"
+    <div
+      className="relative inline-block"
+      onMouseEnter={() => setVisible(true)}
+      onMouseLeave={() => setVisible(false)}
+      onMouseMove={handleMouseMove}
     >
-      {copied ? (
-        <span className="text-[10px] font-tech uppercase text-green-600 dark:text-green-400">Copied!</span>
-      ) : (
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-        </svg>
+      {children}
+      {visible && (
+        <div
+          className="hud-tooltip"
+          style={{ position: 'fixed', left: position.x, top: position.y }}
+        >
+          <div className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-1">Neural_Info</div>
+          <div className="text-[9px] text-slate-300 leading-tight italic">{text}</div>
+        </div>
       )}
-    </button>
+    </div>
   );
 };
 
-const ThemeToggle: React.FC<{ isDark: boolean; onToggle: () => void }> = ({ isDark, onToggle }) => (
-  <button
-    onClick={onToggle}
-    className="p-2 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:ring-2 hover:ring-blue-500/50 transition-all shadow-md"
-    title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-  >
-    {isDark ? (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-      </svg>
-    ) : (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-      </svg>
-    )}
-  </button>
-);
-
-const App: React.FC = () => {
-  const [prompt, setPrompt] = useState('');
-  const [expected, setExpected] = useState('');
-  const [autoOptimize, setAutoOptimize] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [isInputCollapsed, setIsInputCollapsed] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const saved = localStorage.getItem('theme');
-    return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  });
-
-  // History and config state
-  const [activeTab, setActiveTab] = useState<'analysis' | 'metrics'>('analysis');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [history, setHistory] = useState<AnalysisResult[]>([]);
-  const [config, setConfig] = useState<{ dd_dashboard_url?: string; service?: string; env?: string }>({});
-
-  // Fetch config on mount
-  useEffect(() => {
-    fetch('/api/config')
-      .then(res => res.json())
-      .then(data => setConfig(data))
-      .catch(err => console.error("Failed to fetch config", err));
-  }, []);
-
-  // Apply theme class
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDarkMode]);
-
-  // Load history on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('prompt_history');
-    if (saved) {
-      try {
-        setHistory(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to load history", e);
-      }
-    }
-  }, []);
-
-  // Save history when it changes
-  useEffect(() => {
-    localStorage.setItem('prompt_history', JSON.stringify(history));
-  }, [history]);
-
-  const handleAnalyze = async () => {
-    if (!prompt.trim()) return;
-    setLoading(true);
-    setIsInputCollapsed(true); // Collapse input when analyzing
-    try {
-      const data = await analyzePrompt(prompt, expected, autoOptimize);
-      setResult(data);
-      setHistory(prev => [data, ...prev].slice(0, 50));
-    } catch (error) {
-      console.error("Analysis failed:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSelectHistory = (selected: AnalysisResult) => {
-    setResult(selected);
-    setPrompt(selected.originalPrompt);
-    setExpected(selected.expectedResponse || '');
-    setAutoOptimize(selected.autoOptimized || false);
-    setIsSidebarOpen(false);
-    setIsInputCollapsed(true); // Collapse input when viewing history
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleClearHistory = () => {
-    if (confirm('Are you sure you want to clear your entire analysis history?')) {
-      setHistory([]);
-    }
-  };
-
-  const handleSelectExample = (ex: PromptExample) => {
-    setPrompt(ex.prompt);
-    setExpected(ex.expected);
-    setAutoOptimize(ex.autoOptimize);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const exportIndividualAsJSON = () => {
-    if (!result) return;
-    downloadFile(JSON.stringify(result, null, 2), `analysis-${result.id}.json`, 'application/json');
-  };
-
-  const defaultMetrics = [
-    { name: 'Clarity', score: 0 },
-    { name: 'Context', score: 0 },
-    { name: 'Constraints', score: 0 },
-    { name: 'Structure', score: 0 },
-    { name: 'Tone', score: 0 }
-  ];
-
+// Tactical Tour HUD (Docked Panel for the Sidebar)
+const TourHUD: React.FC<{
+  title: string;
+  description: string;
+  step: number;
+  total: number;
+  isAuto: boolean;
+  onNext: () => void;
+  onClose: () => void;
+}> = ({ title, description, step, total, isAuto, onNext, onClose }) => {
   return (
-    <div className="min-h-screen relative transition-colors duration-300">
-      <HistorySidebar
-        isOpen={isSidebarOpen}
-        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-        history={history}
-        onSelect={handleSelectHistory}
-        onClear={handleClearHistory}
-      />
-
-      <div className="max-w-7xl mx-auto px-4 py-8 relative">
-        <div className="absolute top-8 right-4 flex items-center gap-4 z-10">
-          <ThemeToggle isDark={isDarkMode} onToggle={() => setIsDarkMode(!isDarkMode)} />
-        </div>
-
-        {/* Header */}
-        <header className="flex flex-col items-center justify-center mb-8 gap-2">
-          <div className="text-center">
-            <h1 className="text-3xl md:text-4xl font-tech tracking-wider text-slate-800 dark:text-white glow-text uppercase leading-tight">
-              YOUR PROMPTS FAVOURITE PROMPTER
-            </h1>
-            <p className="text-blue-600 dark:text-blue-400 font-tech text-xs md:text-sm tracking-[0.3em] opacity-80 mt-1 uppercase">
-              - proof of prompt improvement -
-            </p>
+    <div className="animate-in slide-in-from-left-4 duration-500">
+      <div className="hud-panel p-6 border-cyan-400 bg-cyan-500/5 cyber-border shadow-[0_0_20px_rgba(0,243,255,0.1)]">
+        <div className="flex justify-between items-start mb-2">
+          <div className="flex items-center gap-2 text-cyan-400">
+            <Binary size={14} className="animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Live_Demo_Step_{step + 1}/{total}</span>
           </div>
-          <div className="h-px w-full max-w-2xl bg-gradient-to-r from-transparent via-blue-500/50 to-transparent mt-4"></div>
-        </header>
-
-        {/* Tabs */}
-        <div className="flex justify-center gap-8 mb-8 border-b border-slate-200 dark:border-blue-900/20 pb-4">
-          <button
-            onClick={() => setActiveTab('analysis')}
-            className={`font-tech text-sm tracking-widest transition-all ${activeTab === 'analysis' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 pb-2' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500'}`}
-          >
-            ANALYSIS ENGINE 📝
-          </button>
-          <button
-            onClick={() => setActiveTab('metrics')}
-            className={`font-tech text-sm tracking-widest transition-all ${activeTab === 'metrics' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 pb-2' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500'}`}
-          >
-            LIVE METRICS 💹
+          <button onClick={onClose} className="text-slate-600 hover:text-white transition-colors">
+            <X size={16} />
           </button>
         </div>
+        <h4 className="text-lg font-black text-white italic tracking-tighter uppercase mb-1">{title}</h4>
+        <p className="text-xs text-slate-400 leading-relaxed mb-6">{description}</p>
 
-        {activeTab === 'analysis' ? (
-          <div className="space-y-6">
-            {/* Collapsible Input Section */}
-            <div className={`bg-white/80 dark:bg-slate-900/40 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-blue-900/40 shadow-xl dark:shadow-2xl relative overflow-hidden transition-all duration-500 ease-in-out ${isInputCollapsed ? 'p-4' : 'p-6'}`}>
-              {isInputCollapsed ? (
-                /* Collapsed: Compact Input Bar */
-                <div className="flex items-center gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] text-slate-500 dark:text-blue-500 font-tech uppercase tracking-wider">Your Prompt</span>
-                      {autoOptimize && <span className="text-[8px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded font-tech uppercase">Auto-Optimize</span>}
-                    </div>
-                    <p className="text-slate-700 dark:text-slate-300 text-sm font-mono truncate">{prompt}</p>
-                  </div>
-                  <button
-                    onClick={() => setIsInputCollapsed(false)}
-                    className="px-4 py-2 text-[10px] font-tech uppercase tracking-wider text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex items-center gap-2 border border-slate-200 dark:border-blue-900/50"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                    Edit Prompt
-                  </button>
-                  <button
-                    onClick={handleAnalyze}
-                    disabled={loading || !prompt}
-                    className={`px-6 py-2 rounded-lg font-tech text-sm tracking-widest transition-all ${loading ? 'bg-slate-300 dark:bg-slate-800 text-slate-500' : 'bg-gradient-to-r from-blue-700 to-blue-500 text-white hover:scale-[1.02] active:scale-[0.98] glow-blue'}`}
-                  >
-                    {loading ? 'ANALYZING...' : 'RE-ANALYZE'}
-                  </button>
-                </div>
-              ) : (
-                /* Expanded: Full Input Form */
-                <>
-                  <div className="absolute top-0 right-0 p-2 opacity-5 dark:opacity-10 pointer-events-none">
-                    <svg width="120" height="120" viewBox="0 0 24 24" fill="currentColor" className="text-blue-500">
-                      <path d="M21 16.5C21 16.88 20.79 17.21 20.47 17.38L12.57 21.82C12.41 21.94 12.21 22 12 22C11.79 22 11.59 21.94 11.43 21.82L3.53 17.38C3.21 17.21 3 16.88 3 16.5V7.5C3 7.12 3.21 6.79 3.53 6.62L11.43 2.18C11.59 2.06 11.79 2 12 2C12.21 2 12.41 2.06 12.57 2.18L20.47 6.62C20.79 6.79 21 7.12 21 7.5V16.5Z" />
-                    </svg>
-                  </div>
-
-                  <label className="block text-slate-600 dark:text-blue-400 font-medium mb-2 text-sm uppercase tracking-wide">Your Prompt</label>
-                  <textarea
-                    className="w-full h-36 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-blue-900/40 rounded-xl p-4 text-slate-800 dark:text-blue-100 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all placeholder-slate-400 dark:placeholder-slate-600 resize-none font-mono"
-                    placeholder="Enter your prompt here for analysis and optimization..."
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                  />
-
-                  <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-slate-600 dark:text-blue-400 font-medium mb-2 text-sm uppercase tracking-wide">Expected Response (Optional)</label>
-                      <textarea
-                        className="w-full h-20 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-blue-900/40 rounded-xl p-4 text-slate-800 dark:text-blue-100 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all placeholder-slate-400 dark:placeholder-slate-600 resize-none font-mono text-sm"
-                        placeholder="If you have an expected response, enter it here."
-                        value={expected}
-                        onChange={(e) => setExpected(e.target.value)}
-                      />
-                    </div>
-                    <div className="flex flex-col justify-between">
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => setAutoOptimize(!autoOptimize)}
-                          className={`w-12 h-6 rounded-full transition-colors relative ${autoOptimize ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${autoOptimize ? 'left-7' : 'left-1'}`} />
-                        </button>
-                        <span className="text-slate-500 dark:text-slate-400 text-sm font-tech text-[10px] uppercase">Auto-optimize if score below 80%</span>
-                      </div>
-
-                      <button
-                        onClick={handleAnalyze}
-                        disabled={loading || !prompt}
-                        className={`mt-4 w-full py-3 rounded-xl font-tech text-lg tracking-widest transition-all relative overflow-hidden group shadow-lg ${loading ? 'bg-slate-300 dark:bg-slate-800 text-slate-500' : 'bg-gradient-to-r from-blue-700 to-blue-500 text-white hover:scale-[1.01] active:scale-[0.99] glow-blue'}`}
-                      >
-                        {loading && <div className="scanner absolute inset-0"></div>}
-                        <span className="relative z-10 flex items-center justify-center gap-3">
-                          {loading ? 'ANALYZING...' : 'ANALYZE PROMPT'}
-                          {!loading && (
-                            <svg className="w-5 h-5 animate-pulse" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M11 15h2v2h-2v-2m0-8h2v6h-2V7m1-5C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2m0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8.59 8 8 8-3.59 8-8 8z" />
-                            </svg>
-                          )}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Results Section - Full Width when collapsed */}
-            <div className={`transition-all duration-500 ${isInputCollapsed ? '' : 'lg:grid lg:grid-cols-2 lg:gap-8'}`}>
-              {/* Performance Profile - Side by Side Layout */}
-              <div className="bg-white/80 dark:bg-slate-900/40 backdrop-blur-md p-6 rounded-2xl border border-slate-200 dark:border-blue-900/40 shadow-xl dark:shadow-2xl relative mb-6 lg:mb-0">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-slate-700 dark:text-blue-400 font-tech uppercase tracking-wider text-sm">Prompt Performance Profile</h3>
-                  {result && (
-                    <button
-                      onClick={exportIndividualAsJSON}
-                      className="text-[10px] font-tech text-blue-600 dark:text-blue-500 hover:text-blue-800 dark:hover:text-blue-300 transition-colors flex items-center gap-1 border border-slate-200 dark:border-blue-900/50 px-2 py-1 rounded bg-slate-50 dark:bg-slate-950/50"
-                    >
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                      EXPORT JSON
-                    </button>
-                  )}
-                </div>
-
-                {/* SIDE BY SIDE: Results LEFT, Graph RIGHT */}
-                <div className="flex gap-6 items-stretch">
-                  {/* LEFT: Before/After or Overall Strength */}
-                  <div className="w-72 flex-shrink-0">
-                    {result?.autoOptimized && result?.originalScore !== undefined ? (
-                      <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-blue-900/30 p-4 rounded-xl shadow-inner h-full flex flex-col justify-center">
-                        <h4 className="text-xs text-slate-500 dark:text-blue-500 font-tech mb-3 uppercase text-center">
-                          🎯 Auto-Optimization Result
-                        </h4>
-                        <div className="flex items-center justify-center gap-4">
-                          {/* Original Score */}
-                          <div className="text-center">
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-tech uppercase block mb-1">Before</span>
-                            <div className="relative">
-                              <div className="w-16 h-16 rounded-full border-3 border-red-400/50 dark:border-red-600/50 flex items-center justify-center bg-red-50 dark:bg-red-950/30">
-                                <span className="text-lg font-bold text-red-600 dark:text-red-400">{result.originalScore}%</span>
-                              </div>
-                              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 text-[8px] px-1.5 py-0.5 rounded-full font-tech">
-                                LOW
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Arrow */}
-                          <div className="flex flex-col items-center">
-                            <svg className="w-6 h-6 text-green-500 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M5 12h14m-7-7l7 7-7 7" />
-                            </svg>
-                            <span className="text-[10px] text-green-600 dark:text-green-400 font-tech">+{result.expectedImprovement}%</span>
-                          </div>
-
-                          {/* Improved Score */}
-                          <div className="text-center">
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-tech uppercase block mb-1">After</span>
-                            <div className="relative">
-                              <div className="w-16 h-16 rounded-full border-3 border-green-400/50 dark:border-green-600/50 flex items-center justify-center bg-green-50 dark:bg-green-950/30 ring-2 ring-green-400/20 animate-pulse">
-                                <span className="text-lg font-bold text-green-600 dark:text-green-400">{result.confidenceScore}%</span>
-                              </div>
-                              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 text-[8px] px-1.5 py-0.5 rounded-full font-tech">
-                                OPTIMIZED
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      /* Standard score display when no optimization */
-                      <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-blue-900/30 p-4 rounded-xl flex flex-col items-center justify-center shadow-inner h-full">
-                        <h4 className="text-xs text-slate-500 dark:text-blue-500 font-tech mb-2 uppercase">Overall Strength</h4>
-                        <RadialProgressBar score={result?.confidenceScore || 0} loading={loading} />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* RIGHT: Graph */}
-                  <div className="flex-1">
-                    <MainChart data={result?.metrics || defaultMetrics} compact={true} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Response & Optimization Panel */}
-              <div className="bg-white/80 dark:bg-slate-900/40 backdrop-blur-md p-6 rounded-2xl border border-slate-200 dark:border-blue-900/40 shadow-xl dark:shadow-2xl">
-                <h3 className="text-slate-700 dark:text-blue-400 font-tech uppercase tracking-wider text-sm mb-4">Analysis Results</h3>
-
-                {/* Response Text - More space when collapsed */}
-                <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-blue-900/30 p-4 rounded-xl relative group shadow-inner mb-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-xs text-slate-500 dark:text-blue-500 font-tech uppercase">Response Text</h4>
-                    {result?.responseText && <CopyButton text={result.responseText} />}
-                  </div>
-                  <div className={`text-sm text-slate-700 dark:text-slate-300 overflow-y-auto font-mono scrollbar-hide ${isInputCollapsed ? 'h-20' : 'h-16'}`}>
-                    {loading ? 'Calculating...' : result?.responseText || 'Awaiting analysis...'}
-                  </div>
-                </div>
-
-                {/* Optimization Suggestion - More space when collapsed */}
-                <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-blue-900/30 p-4 rounded-xl relative group shadow-inner">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-xs text-slate-500 dark:text-blue-500 font-tech uppercase">Optimization Suggestion</h4>
-                    {result?.optimizationSuggestion && <CopyButton text={result.optimizationSuggestion} />}
-                  </div>
-                  <div className={`text-sm text-blue-700 dark:text-blue-300 font-medium overflow-y-auto ${isInputCollapsed ? 'h-20' : 'h-16'}`}>
-                    {loading ? 'Generating suggestions...' : result?.optimizationSuggestion || 'N/A'}
-                  </div>
-                </div>
-
-
-              </div>
-            </div>
+        <div className="space-y-4">
+          <div className="flex gap-1.5 w-full">
+            {Array.from({ length: total }).map((_, i) => (
+              <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-300 ${i === step ? 'bg-cyan-400 shadow-[0_0_8px_#00f3ff]' : 'bg-slate-800'}`}></div>
+            ))}
           </div>
-        ) : (
-          /* Live Metrics Tab */
-          <div className="bg-white/80 dark:bg-slate-900/40 backdrop-blur-md p-6 rounded-2xl border border-slate-200 dark:border-blue-900/40 shadow-xl dark:shadow-2xl">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-tech text-slate-800 dark:text-blue-400 tracking-wider uppercase">Datadog Performance Dashboard</h2>
-              <div className="text-[10px] font-tech text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                Service: {config.service || '...'} | Env: {config.env || '...'}
+          <div className="flex items-center justify-between">
+            {!isAuto ? (
+              <button
+                onClick={onNext}
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-cyan-500 text-black text-[10px] font-black uppercase tracking-widest hover:bg-white transition-all active:scale-95"
+              >
+                CONTINUE_SEQUENCE <ArrowRight size={12} />
+              </button>
+            ) : (
+              <div className="flex items-center justify-center w-full gap-3 py-3 border border-cyan-500/20 text-[9px] font-black text-cyan-400 uppercase tracking-widest bg-cyan-500/5">
+                <Loader2 size={12} className="animate-spin" /> Auto_Pilot_Engaged
               </div>
-            </div>
-            <div className="w-full h-[800px] border border-slate-200 dark:border-blue-900/40 rounded-xl overflow-hidden bg-slate-950/20 shadow-inner">
-              {config.dd_dashboard_url ? (
-                <iframe
-                  src={config.dd_dashboard_url}
-                  width="100%"
-                  height="100%"
-                  frameBorder="0"
-                  style={{ border: 0 }}
-                  title="Datadog Dashboard"
-                />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-slate-500 animate-pulse">
-                  <DatadogLogo />
-                  <p className="font-tech text-xs tracking-widest">LOADING TELEMETRY DATA...</p>
-                </div>
-              )}
-            </div>
+            )}
           </div>
-        )}
-
-        {activeTab === 'analysis' && <ExampleTable onSelect={handleSelectExample} />}
-
-        <footer className="mt-16 flex items-center justify-center gap-12 pb-8 border-t border-slate-200 dark:border-blue-900/20 pt-8">
-          <DatadogLogo />
-          <GeminiLogo />
-        </footer>
+        </div>
       </div>
     </div>
   );
 };
+
+const DataProcessingSequence: React.FC = () => {
+  const [stage, setStage] = useState(0);
+  const stages = [
+    { title: "INITIALIZING_TENSORS", icon: <Binary className="text-cyan-400" /> },
+    { title: "QUERYING_ENGINE_CLUSTER", icon: <Cloud className="text-blue-400" /> },
+    { title: "EXTRACTING_SEMANTIC_WEIGHTS", icon: <Dna className="text-purple-400" /> },
+    { title: "DATADOG_METRIC_FLUSH", icon: <Dog className="text-[#632CA6]" /> },
+    { title: "REMEDIATION_SHARD_SYNC", icon: <ShieldCheck className="text-emerald-400" /> }
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStage(prev => (prev + 1) % stages.length);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="hud-panel p-12 bg-black/40 relative overflow-hidden flex flex-col items-center justify-center min-h-[300px]">
+      <div className="absolute inset-0 opacity-5 pointer-events-none">
+        <div className="grid grid-cols-10 h-full w-full">
+          {[...Array(100)].map((_, i) => (
+            <div key={i} className="border border-cyan-500/20 text-[8px] mono overflow-hidden h-4">
+              {Math.random().toString(16).substring(2, 8)}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="relative z-10 space-y-8 w-full max-w-md text-center">
+        <div className="flex justify-center">
+          <div className="relative">
+            <div className="w-24 h-24 border-2 border-dashed border-cyan-500/30 rounded-full animate-[spin_8s_linear_infinite]"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="animate-flicker">
+                {stages[stage].icon}
+              </div>
+            </div>
+            <div className="absolute -inset-4 border border-cyan-500/10 rounded-full animate-ping"></div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between text-[10px] font-black tracking-[0.2em] text-cyan-400/80 uppercase">
+            <span>STG_{stage + 1}_LOG: {stages[stage].title}</span>
+            <span className="mono">{Math.floor(Math.random() * 100)}%</span>
+          </div>
+          <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden border border-white/5 relative">
+            <div className="absolute top-0 h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 animate-bar-grow"></div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {stages.map((s, i) => (
+            <div key={i} className={`h-1 rounded-full transition-colors duration-500 ${i <= stage ? 'bg-cyan-500' : 'bg-slate-800'}`}></div>
+          ))}
+        </div>
+
+        <div className="text-[9px] mono text-slate-500 text-left h-12 overflow-hidden bg-black/40 p-2 rounded border border-white/5 italic">
+          <div className="animate-[pulse_1s_infinite]">
+            [SYS] PIPE_ENGINE_INFERENCE :: CLUSTER_NODE_ZETA<br />
+            [SYS] EMITTING_METRICS_TO_DATADOG_AGENT_7.51...
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DEMO_STEPS = [
+  { title: "Navigation Access", description: "The platform is organized into tactical hubs. We'll start in the Analysis Engine.", tab: TabType.ANALYSIS },
+  { title: "Neural Input", description: "First, we initialize the buffer with a raw, non-optimized prompt to analyze its quality.", prompt: "write a python function to find the maximum in a list" },
+  { title: "Vertex Scan", description: "We trigger a full diagnostic scan. This routes your prompt through our Gemini-3 Flash inference cluster.", action: 'analyze' },
+  { title: "Metrics Analysis", description: "While processing, the system sends high-fidelity telemetry to our integrated Datadog hub.", tab: TabType.METRICS },
+  { title: "Remediation Shard", description: "Returning to Analysis, we see the engine has identified quality gaps and generated an 'Evidence of Improvement' shard.", tab: TabType.ANALYSIS },
+  { title: "Neural Sync", description: "Applying the remediation 'Sync Patch' instantly upgrades your prompt's structural and semantic weight.", action: 'remediate' }
+];
+
+const App: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<TabType>(TabType.ANALYSIS);
+  const [inputPrompt, setInputPrompt] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [currentResult, setCurrentResult] = useState<AnalysisResult | null>(null);
+  const [history, setHistory] = useState<AnalysisResult[]>([]);
+  const [templates, setTemplates] = useState<PromptTemplate[]>([]);
+  const [autoOptimize, setAutoOptimize] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('gemini-3-flash-preview');
+
+  // Demo State
+  const [demoState, setDemoState] = useState<{ isActive: boolean, isAuto: boolean, step: number }>({
+    isActive: false,
+    isAuto: false,
+    step: 0
+  });
+
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('prompt_prompter_history');
+    if (savedHistory) setHistory(JSON.parse(savedHistory));
+
+    const savedTemplates = localStorage.getItem('prompt_prompter_templates');
+    if (savedTemplates) {
+      try {
+        const parsed = JSON.parse(savedTemplates);
+        setTemplates(parsed);
+      } catch (e) {
+        console.error("Failed to parse templates", e);
+      }
+    }
+
+    const savedModel = localStorage.getItem('prompt_prompter_model');
+    if (savedModel) setSelectedModel(savedModel);
+  }, []);
+
+  const handleAnalyze = async (promptOverride?: string) => {
+    const promptToUse = promptOverride || inputPrompt;
+    if (!promptToUse.trim()) return;
+    setIsAnalyzing(true);
+    const result = await runAnalysis(promptToUse, autoOptimize, selectedModel);
+    setIsAnalyzing(false);
+    if (result.status === 'success') {
+      setCurrentResult(result);
+      const newHistory = [result, ...history].slice(0, 50);
+      setHistory(newHistory);
+      localStorage.setItem('prompt_prompter_history', JSON.stringify(newHistory));
+      datadog.trackAnalysis(result);
+    }
+  };
+
+  // Demo Controller
+  useEffect(() => {
+    if (!demoState.isActive) return;
+
+    const stepData = DEMO_STEPS[demoState.step];
+    if (stepData.tab) setActiveTab(stepData.tab);
+
+    const runStep = async () => {
+      if (stepData.prompt) {
+        let currentText = "";
+        for (const char of stepData.prompt) {
+          currentText += char;
+          setInputPrompt(currentText);
+          await new Promise(r => setTimeout(r, 40));
+        }
+      }
+
+      if (stepData.action === 'analyze') {
+        await handleAnalyze();
+      }
+
+      if (stepData.action === 'remediate') {
+        if (currentResult?.optimization) {
+          setInputPrompt(currentResult.optimization.optimized_prompt);
+          await handleAnalyze(currentResult.optimization.optimized_prompt);
+        }
+      }
+
+      if (demoState.isAuto) {
+        setTimeout(() => {
+          if (demoState.step < DEMO_STEPS.length - 1) {
+            setDemoState(prev => ({ ...prev, step: prev.step + 1 }));
+          } else {
+            setDemoState(prev => ({ ...prev, isActive: false }));
+          }
+        }, 3000);
+      }
+    };
+
+    runStep();
+  }, [demoState.isActive, demoState.step]);
+
+  const handleClearData = () => {
+    if (confirm("Confirm absolute system purge? All templates and history will be deleted.")) {
+      setHistory([]);
+      setTemplates([]);
+      localStorage.clear();
+      window.location.reload();
+    }
+  };
+
+  const lastPrompt = useMemo(() => history[0]?.original_prompt, [history]);
+
+  return (
+    <div className="min-h-screen flex flex-col selection:bg-cyan-500/30">
+      {/* HUD Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 h-16 border-b border-cyan-500/20 bg-[#020617]/80 backdrop-blur-md px-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <div className="w-12 h-12 flex items-center justify-center neural-pulse">
+              <Hexagon className="text-cyan-400 absolute animate-[spin_10s_linear_infinite]" size={48} strokeWidth={1} />
+              <Dna className="text-cyan-400" size={24} />
+            </div>
+          </div>
+          <div className="leading-none">
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-black tracking-tighter text-white uppercase italic">Prompt</span>
+              <span className="text-xl font-light text-cyan-400 tracking-[0.2em] uppercase">Prompter</span>
+            </div>
+            <div className="text-[10px] text-cyan-500/50 uppercase tracking-[0.3em] font-bold mt-1">Evidence of Improvement</div>
+          </div>
+        </div>
+
+        <nav className="flex gap-4">
+          {NAV_ITEMS.map(item => (
+            <Tooltip key={item.id} text={`Switch viewport to ${item.label.toLowerCase()} hub.`}>
+              <button
+                onClick={() => setActiveTab(item.id as TabType)}
+                className={`group relative flex flex-col items-center px-4 py-1 transition-all ${activeTab === item.id ? 'text-cyan-400' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+              >
+                <div className="mb-1">{item.icon}</div>
+                <span className="text-[9px] font-bold uppercase tracking-widest">{item.label}</span>
+                {activeTab === item.id && (
+                  <div className="absolute -bottom-[1.25rem] w-full h-0.5 bg-cyan-400 shadow-[0_0_10px_#00f3ff]"></div>
+                )}
+              </button>
+            </Tooltip>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-8">
+          <div className="hidden xl:flex items-center gap-6 border-l border-white/10 pl-6">
+            <div className="flex flex-col items-end">
+              <Tooltip text="Direct stream link to Datadog Browser SDK.">
+                <div className="flex items-center gap-1.5 text-[9px] font-black text-[#632CA6] tracking-tighter uppercase cursor-help">
+                  <Dog size={10} fill="#632CA6" /> Datadog Sync
+                </div>
+              </Tooltip>
+              <div className="text-[10px] mono text-emerald-400 uppercase font-bold">Connected</div>
+            </div>
+            <div className="flex flex-col items-end">
+              <Tooltip text="Primary inference engine currently routing prompt tensors.">
+                <div className="flex items-center gap-1.5 text-[9px] font-black text-white tracking-tighter uppercase cursor-help">
+                  <Cloud size={10} className="text-blue-400" /> Vertex AI Engine
+                </div>
+              </Tooltip>
+              <div className="text-[10px] mono text-cyan-400 uppercase font-bold">
+                {AVAILABLE_MODELS.find(m => m.id === selectedModel)?.name || 'Gemini'}
+              </div>
+            </div>
+          </div>
+
+          <Tooltip text="Access system console for engine switching and UI overlays.">
+            <button
+              onClick={() => setShowSettings(true)}
+              className="w-10 h-10 rounded-full border border-cyan-500/20 flex items-center justify-center hover:bg-cyan-500/10 cursor-pointer transition-colors group"
+            >
+              <Settings size={18} className="text-cyan-400 group-hover:rotate-45 transition-transform" />
+            </button>
+          </Tooltip>
+        </div>
+      </header>
+
+      {/* Settings Modal HUD */}
+      {showSettings && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#020617]/90 backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="hud-panel max-w-2xl w-full p-8 relative cyber-border max-h-[90vh] overflow-y-auto shadow-[0_0_100px_rgba(0,243,255,0.1)]">
+            <button onClick={() => setShowSettings(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors">
+              <X size={24} />
+            </button>
+            <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase mb-8 flex items-center gap-3">
+              <Settings className="text-cyan-400" /> System_Settings_Console
+            </h2>
+
+            <div className="space-y-8">
+              {/* Demo Mode Section */}
+              <section className="bg-cyan-500/5 border border-cyan-500/20 p-6 rounded relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10"><Play size={64} className="text-cyan-500" /></div>
+                <h3 className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
+                  <Play size={14} /> Neural_Simulation (Demo Mode)
+                </h3>
+                <p className="text-xs text-slate-400 mb-6 max-w-md">Initialize a functional walkthrough. The system will drive the interface to demonstrate remediation and metrics pipelines.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => { setDemoState({ isActive: true, isAuto: false, step: 0 }); setShowSettings(false); }}
+                    className="flex items-center justify-center gap-3 px-6 py-4 bg-cyan-500 text-black text-[10px] font-black uppercase tracking-widest hover:bg-white transition-all shadow-lg"
+                  >
+                    <MousePointer2 size={16} /> Interactive Demo
+                  </button>
+                  <button
+                    onClick={() => { setDemoState({ isActive: true, isAuto: true, step: 0 }); setShowSettings(false); }}
+                    className="flex items-center justify-center gap-3 px-6 py-4 border border-cyan-500/30 text-cyan-400 text-[10px] font-black uppercase tracking-widest hover:bg-cyan-500/10 transition-all"
+                  >
+                    <Play size={16} /> Auto-Pilot Mode
+                  </button>
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em] mb-4">Engine_Configuration</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {AVAILABLE_MODELS.map(model => (
+                    <button
+                      key={model.id}
+                      onClick={() => { setSelectedModel(model.id); localStorage.setItem('prompt_prompter_model', model.id); }}
+                      className={`p-4 border transition-all text-left ${selectedModel === model.id ? 'border-cyan-500 bg-cyan-500/10 shadow-[inset_0_0_20px_rgba(0,243,255,0.05)]' : 'border-white/5 hover:border-cyan-500/30'
+                        }`}
+                    >
+                      <div className="text-sm font-bold text-white uppercase">{model.name}</div>
+                      <div className="text-[10px] text-slate-500 mt-1">{model.description}</div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="pt-4 border-t border-white/5">
+                <button
+                  onClick={handleClearData}
+                  className="w-full py-3 bg-red-500/10 border border-red-500/30 text-red-500 text-[10px] font-black uppercase tracking-[0.3em] hover:bg-red-500 hover:text-black transition-all"
+                >
+                  ABSOLUTE_DATA_PURGE
+                </button>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <main className="flex-1 mt-24 px-6 pb-12 max-w-[1600px] mx-auto w-full grid grid-cols-12 gap-8">
+        <aside className="col-span-12 lg:col-span-3 space-y-6">
+          <section className="hud-panel p-5 datadog-glow">
+            <div className="hud-corner top-0 left-0 border-t-2 border-l-2"></div>
+            <div className="hud-corner bottom-0 right-0 border-b-2 border-r-2 opacity-50"></div>
+            <TemplateManager
+              templates={templates}
+              onSave={(name, content, description) => {
+                const initialVersion: TemplateVersion = {
+                  id: crypto.randomUUID(),
+                  content,
+                  description,
+                  timestamp: Date.now(),
+                  versionNumber: 1
+                };
+                const newTpl: PromptTemplate = { id: crypto.randomUUID(), name, versions: [initialVersion] };
+                const updated = [newTpl, ...templates];
+                setTemplates(updated);
+                localStorage.setItem('prompt_prompter_templates', JSON.stringify(updated));
+              }}
+              onUpdate={(updated) => {
+                const updatedTpls = templates.map(t => t.id === updated.id ? updated : t);
+                setTemplates(updatedTpls);
+                localStorage.setItem('prompt_prompter_templates', JSON.stringify(updatedTpls));
+              }}
+              onDelete={(id) => {
+                const updated = templates.filter(t => t.id !== id);
+                setTemplates(updated);
+                localStorage.setItem('prompt_prompter_templates', JSON.stringify(updated));
+              }}
+              onSelect={setInputPrompt}
+              currentInput={inputPrompt}
+            />
+          </section>
+
+          <section className="hud-panel p-5 bg-purple-500/5 border-purple-500/20">
+            <h3 className="text-[10px] font-black text-purple-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+              <Activity size={14} /> Vertex AI Diagnostics
+            </h3>
+            <div className="space-y-3">
+              <DiagnosticLine label="Neural Entropy" value="2.4%" color="text-emerald-400" />
+              <DiagnosticLine label="Context Buffer" value="78/128k" color="text-cyan-400" />
+              <DiagnosticLine label="Cloud Quota" value="ACTIVE" color="text-emerald-400" />
+              <div className="pt-2">
+                <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+                  <div className="w-[65%] h-full bg-gradient-to-r from-blue-500 via-green-500 to-red-500 animate-[shimmer_2s_infinite]"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Demo HUD Docked Here (Yellow Box Area) */}
+          {demoState.isActive && (
+            <TourHUD
+              title={DEMO_STEPS[demoState.step].title}
+              description={DEMO_STEPS[demoState.step].description}
+              step={demoState.step}
+              total={DEMO_STEPS.length}
+              isAuto={demoState.isAuto}
+              onNext={() => setDemoState(prev => ({ ...prev, step: prev.step + 1 }))}
+              onClose={() => setDemoState(prev => ({ ...prev, isActive: false }))}
+            />
+          )}
+        </aside>
+
+        <div className="col-span-12 lg:col-span-6 space-y-8">
+          {activeTab === TabType.ANALYSIS ? (
+            <>
+              <div className="relative group">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-[#632CA6] rounded-2xl blur opacity-20 group-hover:opacity-40 transition-opacity"></div>
+                <div className={`relative hud-panel p-1 bg-[#0f172a] ${demoState.isActive && DEMO_STEPS[demoState.step].prompt ? 'ring-2 ring-cyan-500 shadow-[0_0_20px_#00f3ff]' : ''}`}>
+                  <div className="flex items-center justify-between px-4 py-2 border-b border-cyan-500/10">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
+                      <Terminal size={14} /> Core_Inference_Buffer
+                    </div>
+                  </div>
+                  <textarea
+                    value={inputPrompt}
+                    onChange={(e) => setInputPrompt(e.target.value)}
+                    placeholder="Initialize neural prompt string..."
+                    className="w-full h-56 bg-transparent p-6 text-white placeholder-slate-600 focus:outline-none mono text-sm resize-none"
+                  />
+                  <div className="p-4 flex items-center justify-between border-t border-cyan-500/10">
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer group/toggle">
+                        <div className={`w-8 h-4 rounded-full transition-colors relative ${autoOptimize ? 'bg-cyan-500' : 'bg-slate-700'}`}>
+                          <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${autoOptimize ? 'left-4.5' : 'left-0.5'}`}></div>
+                          <input type="checkbox" className="hidden" checked={autoOptimize} onChange={() => setAutoOptimize(!autoOptimize)} />
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-500 group-hover/toggle:text-cyan-400 uppercase tracking-tighter">AUTO_OPTIMIZE_PROMPTS</span>
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => lastPrompt && handleAnalyze(lastPrompt)}
+                        disabled={isAnalyzing || !lastPrompt}
+                        className={`group relative flex items-center gap-2 px-4 py-3 rounded-lg font-black tracking-widest transition-all overflow-hidden border border-cyan-500/30 ${isAnalyzing || !lastPrompt ? 'bg-slate-800 text-slate-600 border-slate-700 cursor-not-allowed' : 'bg-cyan-500/5 text-cyan-400 hover:bg-cyan-500/10 active:scale-95'
+                          }`}
+                      >
+                        <RotateCcw size={18} className={isAnalyzing ? 'animate-spin' : 'group-hover:-rotate-45 transition-transform'} />
+                        <span className="text-[10px]">RE-RUN LAST</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleAnalyze()}
+                        disabled={isAnalyzing || !inputPrompt.trim()}
+                        className={`relative flex items-center gap-3 px-8 py-3 rounded-lg font-black tracking-[0.2em] transition-all overflow-hidden ${isAnalyzing ? 'bg-slate-800 text-slate-500' : 'bg-cyan-500 text-black hover:shadow-[0_0_20px_rgba(0,243,255,0.4)] active:scale-95'
+                          } ${demoState.isActive && DEMO_STEPS[demoState.step].action === 'analyze' ? 'animate-glitch shadow-[0_0_30px_#00f3ff]' : ''}`}
+                      >
+                        {isAnalyzing ? (
+                          <RefreshCw size={20} className="animate-spin" />
+                        ) : (
+                          <><Target size={20} /> RUN_VERTEX_SCAN</>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {isAnalyzing && (
+                <div className="animate-in fade-in zoom-in-95 duration-500">
+                  <DataProcessingSequence />
+                </div>
+              )}
+
+              {currentResult && !isAnalyzing && (
+                <AnalysisDisplay result={currentResult} onOptimize={(opt) => {
+                  setInputPrompt(opt);
+                  handleAnalyze(opt);
+                }} />
+              )}
+
+              {!currentResult && !isAnalyzing && (
+                <div className="hud-panel p-12 text-center bg-cyan-500/5 border-dashed border-cyan-500/30">
+                  <Crosshair className="mx-auto text-cyan-500/30 mb-6" size={48} />
+                  <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase mb-2">No Active Pipeline</h3>
+                  <p className="text-sm text-slate-400 max-w-sm mx-auto">Input a target string to initialize the Gemini-powered remediation engine and verify quality tensors.</p>
+                </div>
+              )}
+            </>
+          ) : activeTab === TabType.METRICS ? (
+            <MetricsTab />
+          ) : (
+            <section className="space-y-6">
+              <div className="flex justify-between items-end mb-4 px-2">
+                <h2 className="text-2xl font-black text-white italic tracking-tighter flex items-center gap-3 uppercase">
+                  <HistoryIcon className="text-cyan-400" /> Snapshot History
+                </h2>
+                <button onClick={() => { setHistory([]); localStorage.removeItem('prompt_prompter_history'); }} className="text-[10px] font-bold text-red-500/60 hover:text-red-500 flex items-center gap-2 uppercase tracking-widest">
+                  <Trash2 size={14} /> Wipe Session Cache
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {history.map(item => (
+                  <HistoryHex key={item.id} item={item} onClick={() => { setCurrentResult(item); setActiveTab(TabType.ANALYSIS); }} />
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+        <aside className="col-span-12 lg:col-span-3 space-y-6">
+          <section className="hud-panel p-5 datadog-glow">
+            <h3 className="text-[10px] font-black text-[#632CA6] uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+              <Dog size={14} fill="#632CA6" /> Datadog Intelligence
+            </h3>
+            <div className="space-y-4">
+              <StatRow label="Inference Success" value="99.9%" />
+              <StatRow label="Active Monitors" value="24" />
+              <StatRow label="Service Health" value="OPTIMAL" />
+            </div>
+          </section>
+
+          <section className="hud-panel p-5 overflow-hidden border-blue-500/30 bg-blue-500/5">
+            <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+              <Cloud size={14} /> Vertex AI Log Feed
+            </h3>
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin">
+              {history.slice(0, 8).map((h, i) => (
+                <div key={i} className="text-[9px] mono text-slate-400 py-1 border-b border-white/5 flex gap-2">
+                  <span className="text-blue-500 font-bold italic">INF:</span>
+                  <span className="truncate">NODE_{h.id.slice(0, 8)}</span>
+                </div>
+              ))}
+              <div className="text-[9px] mono text-cyan-500 animate-pulse">{'>>>'} POLLING_VERTEX_API_ENDPOINTS...</div>
+            </div>
+          </section>
+        </aside>
+      </main>
+
+      <footer className="h-14 flex items-center justify-between border-t border-cyan-500/10 bg-[#020617] px-8">
+        <div className="text-[10px] font-bold text-slate-500 tracking-[0.3em] uppercase flex items-center gap-4">
+          <span className="flex items-center gap-1.5"><Cloud size={12} className="text-blue-500" /> Powered by Vertex AI</span>
+          <span className="text-white/10">|</span>
+          <span className="flex items-center gap-1.5"><Dog size={12} className="text-purple-500" /> Observed by Datadog</span>
+        </div>
+        <div className="text-[10px] font-bold text-slate-500 tracking-[0.3em] uppercase">
+          System Stability: <span className="text-emerald-500">99.999%</span>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+const DiagnosticLine: React.FC<{ label: string, value: string, color: string }> = ({ label, value, color }) => (
+  <div className="flex justify-between items-center">
+    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{label}</span>
+    <span className={`text-[10px] font-black mono ${color}`}>{value}</span>
+  </div>
+);
+
+const StatRow: React.FC<{ label: string, value: string }> = ({ label, value }) => (
+  <div className="flex justify-between items-end border-b border-white/5 pb-2">
+    <span className="text-[10px] text-slate-500 font-bold">{label}</span>
+    <span className="text-sm font-black text-white italic mono">{value}</span>
+  </div>
+);
+
+const HistoryHex: React.FC<{ item: AnalysisResult, onClick: () => void }> = ({ item, onClick }) => (
+  <div
+    onClick={onClick}
+    className="hud-panel p-4 group cursor-pointer hover:bg-cyan-500/5 hover:border-cyan-500/40 transition-all flex items-center gap-4"
+  >
+    <div className="w-12 h-12 flex items-center justify-center shrink-0">
+      <Hexagon className={`transition-all ${item.metrics.accuracy_score > 0.8 ? 'text-emerald-500' : 'text-yellow-500'}`} size={44} strokeWidth={1} />
+      <span className="absolute text-[10px] font-black">{Math.round(item.metrics.accuracy_score * 100)}</span>
+    </div>
+    <div className="min-w-0">
+      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter truncate">{new Date(item.timestamp).toLocaleTimeString()}</div>
+      <div className="text-xs text-slate-200 line-clamp-1 italic mono mt-1">"{item.original_prompt}"</div>
+    </div>
+    <ChevronRight className="ml-auto text-slate-700 group-hover:text-cyan-400 group-hover:translate-x-1 transition-all" size={16} />
+  </div>
+);
 
 export default App;

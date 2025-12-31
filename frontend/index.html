@@ -1,122 +1,175 @@
+
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your Prompt's Favourite Prompter</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            tech: ['Orbitron', 'sans-serif'],
-            sans: ['Inter', 'sans-serif'],
-          },
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PROMPT PROMPTER | NEURAL INTERFACE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-cyan: #00f3ff;
+            --neon-purple: #bc13fe;
+            --datadog-purple: #632CA6;
+            --vertex-blue: #4285F4;
+            --hud-bg: #020617;
+            --hud-border: rgba(0, 243, 255, 0.2);
         }
-      }
-    }
-  </script>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Inter:wght@300;400;500;600&display=swap"
-    rel="stylesheet">
-  <style>
-    body {
-      transition: background-color 0.3s ease, color 0.3s ease;
-    }
 
-    .glow-blue {
-      box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
-    }
-
-    .dark .glow-blue {
-      box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
-    }
-
-    .glow-text {
-      text-shadow: 0 0 8px rgba(59, 130, 246, 0.8);
-    }
-
-    .circuit-bg {
-      background-image: radial-gradient(circle at 2px 2px, rgba(59, 130, 246, 0.05) 1px, transparent 0);
-      background-size: 24px 24px;
-    }
-
-    .dark .circuit-bg {
-      background-image: radial-gradient(circle at 2px 2px, rgba(59, 130, 246, 0.05) 1px, transparent 0);
-    }
-
-    @keyframes scan {
-      0% {
-        transform: translateY(-100%);
-        opacity: 0;
-      }
-
-      50% {
-        opacity: 0.5;
-      }
-
-      100% {
-        transform: translateY(100%);
-        opacity: 0;
-      }
-    }
-
-    .scanner::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, #3b82f6, transparent);
-      animation: scan 3s linear infinite;
-    }
-
-    .sidebar-transition {
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    ::-webkit-scrollbar {
-      width: 4px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: rgba(15, 23, 42, 0.1);
-    }
-
-    .dark ::-webkit-scrollbar-track {
-      background: rgba(15, 23, 42, 0.5);
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 10px;
-    }
-
-    .dark ::-webkit-scrollbar-thumb {
-      background: #1e40af;
-    }
-  </style>
-  <script>
-      /* Initialize theme before React renders */
-      (function () {
-        const theme = localStorage.getItem('theme');
-        if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: var(--hud-bg);
+            color: #e2e8f0;
+            overflow-x: hidden;
+            background-image: 
+                linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
         }
-      })();
-  </script>
-  <script type="module" src="/index.tsx"></script>
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Bespoke Cyber-HUD Components */
+        .hud-panel {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--hud-border);
+            position: relative;
+            clip-path: polygon(
+                0% 10px, 10px 0%, 
+                calc(100% - 10px) 0%, 100% 10px, 
+                100% calc(100% - 10px), calc(100% - 10px) 100%, 
+                10px 100%, 0% calc(100% - 10px)
+            );
+            backdrop-filter: blur(8px);
+        }
+
+        .hud-panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, transparent 0%, rgba(0, 243, 255, 0.05) 100%);
+            pointer-events: none;
+        }
+
+        .hud-corner {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-color: var(--neon-cyan);
+            border-style: solid;
+        }
+
+        .scanline {
+            width: 100%;
+            height: 2px;
+            background: rgba(0, 243, 255, 0.1);
+            position: fixed;
+            top: 0;
+            z-index: 100;
+            pointer-events: none;
+            animation: scan 4s linear infinite;
+        }
+
+        @keyframes scan {
+            0% { transform: translateY(-100vh); }
+            100% { transform: translateY(100vh); }
+        }
+
+        .neural-pulse {
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { filter: drop-shadow(0 0 5px rgba(0, 243, 255, 0.3)); }
+            50% { filter: drop-shadow(0 0 25px rgba(0, 243, 255, 0.6)); }
+        }
+
+        .cyber-border {
+            border: 1px solid var(--neon-cyan);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.3), inset 0 0 10px rgba(0, 243, 255, 0.1);
+        }
+
+        @keyframes bar-grow {
+            0% { width: 0%; opacity: 0; }
+            50% { opacity: 1; }
+            100% { width: 100%; }
+        }
+
+        .animate-bar-grow {
+            animation: bar-grow 2s ease-in-out infinite;
+        }
+
+        @keyframes flicker {
+            0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100% { opacity: 1; }
+            20%, 21.999%, 63%, 63.999%, 65%, 69.999% { opacity: 0.4; }
+        }
+
+        .animate-flicker {
+            animation: flicker 3s linear infinite;
+        }
+
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+
+        .animate-glitch {
+            animation: glitch 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both infinite;
+        }
+
+        /* Tooltip Styles */
+        .hud-tooltip {
+          position: absolute;
+          z-index: 1000;
+          background: rgba(2, 6, 23, 0.95);
+          border: 1px solid var(--neon-cyan);
+          padding: 8px 12px;
+          border-radius: 4px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 10px rgba(0, 243, 255, 0.2);
+          pointer-events: none;
+          max-width: 240px;
+          animation: tooltip-fade 0.2s ease-out;
+        }
+
+        @keyframes tooltip-fade {
+          from { opacity: 0; transform: translateY(5px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Brand Specific Classes */
+        .datadog-glow {
+            box-shadow: 0 0 15px rgba(99, 44, 166, 0.4);
+            border: 1px solid rgba(99, 44, 166, 0.3);
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: var(--neon-cyan); border-radius: 2px; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "recharts": "https://esm.sh/recharts@^3.6.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
 </head>
-
-<body
-  class="circuit-bg min-h-screen bg-slate-50 dark:bg-[#030712] text-slate-900 dark:text-slate-100 transition-colors duration-300">
-  <div id="root"></div>
+<body>
+    <div class="scanline"></div>
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
 </body>
-
 </html>

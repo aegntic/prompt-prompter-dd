@@ -70,6 +70,12 @@ flagged/
 .git/
 .github/
 
+# Demo artifacts
+demo-recorder/
+demo_production/
+
+
+
 # Frontend source (but NOT dist - we need that!)
 frontend/node_modules/
 frontend/src/
