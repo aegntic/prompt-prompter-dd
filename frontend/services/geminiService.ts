@@ -4,7 +4,7 @@ import { analyzePrompt as apiAnalyze, AnalyzeResponse } from "./apiService";
 import { STOPWORDS } from "../constants";
 
 // Backend API URL - falls back to local development server
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 /**
  * Client-side prompt quality analysis (for instant feedback)

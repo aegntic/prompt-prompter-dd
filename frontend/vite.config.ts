@@ -10,18 +10,18 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       proxy: {
         '/api': {
-          target: env.VITE_API_URL || 'http://localhost:7860',
+          target: env.VITE_API_URL || 'http://localhost:8080',
           changeOrigin: true,
         },
         '/health': {
-          target: env.VITE_API_URL || 'http://localhost:7860',
+          target: env.VITE_API_URL || 'http://localhost:8080',
           changeOrigin: true,
         },
       },
     },
     plugins: [react()],
     define: {
-      'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL || 'http://localhost:7860'),
+      'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL || ''),
     },
     resolve: {
       alias: {
