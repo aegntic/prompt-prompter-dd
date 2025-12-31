@@ -27,9 +27,14 @@ from ddtrace import patch_all, tracer  # noqa: E402
 # Patch all supported libraries for automatic tracing
 patch_all()
 
-from config import get_settings  # noqa: E402
-from models import AnalyzeRequest, AnalyzeResponse, ErrorResponse, HealthResponse  # noqa: E402
-from prompt_engine import get_engine  # noqa: E402
+from backend.config import get_settings  # noqa: E402
+from backend.models import (  # noqa: E402
+    AnalyzeRequest,
+    AnalyzeResponse,
+    ErrorResponse,
+    HealthResponse,
+)
+from backend.prompt_engine import get_engine  # noqa: E402
 
 # Configure logging
 logging.basicConfig(

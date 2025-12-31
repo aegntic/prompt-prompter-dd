@@ -114,7 +114,7 @@ VERTEX_LOCATION=us-central1
 
 ```bash
 # Start the application (serves Frontend + FastAPI backend)
-cd backend && uv run python app.py
+uv run python -m backend.app
 
 # Open http://localhost:7860
 ```

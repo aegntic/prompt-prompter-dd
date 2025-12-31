@@ -75,7 +75,7 @@ class TestMetricsBreakdown:
 
     def test_metrics_validation(self):
         """Test that metrics model validates correctly."""
-        from models import MetricsBreakdown
+        from backend.models import MetricsBreakdown
 
         metrics = MetricsBreakdown(
             accuracy_score=0.85,
@@ -95,7 +95,7 @@ class TestMetricsBreakdown:
         """Test that metrics respect bounds."""
         from pydantic import ValidationError
 
-        from models import MetricsBreakdown
+        from backend.models import MetricsBreakdown
 
         # Should fail with accuracy > 1
         with pytest.raises(ValidationError):
@@ -116,7 +116,7 @@ class TestOptimizationResult:
 
     def test_optimization_result_creation(self):
         """Test creating an optimization result."""
-        from models import OptimizationResult
+        from backend.models import OptimizationResult
 
         result = OptimizationResult(
             optimized_prompt="Write a clear Python function...",
@@ -133,7 +133,7 @@ class TestAnalyzeRequest:
 
     def test_request_creation(self):
         """Test creating an analyze request."""
-        from models import AnalyzeRequest
+        from backend.models import AnalyzeRequest
 
         request = AnalyzeRequest(
             prompt="Explain machine learning",
@@ -146,7 +146,7 @@ class TestAnalyzeRequest:
 
     def test_request_with_expected(self):
         """Test creating request with expected response."""
-        from models import AnalyzeRequest
+        from backend.models import AnalyzeRequest
 
         request = AnalyzeRequest(
             prompt="What is 2+2?",
@@ -161,7 +161,7 @@ class TestAnalyzeRequest:
         """Test that empty prompts are rejected."""
         from pydantic import ValidationError
 
-        from models import AnalyzeRequest
+        from backend.models import AnalyzeRequest
 
         with pytest.raises(ValidationError):
             AnalyzeRequest(prompt="")

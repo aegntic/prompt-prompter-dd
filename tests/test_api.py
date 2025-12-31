@@ -9,7 +9,7 @@ class TestModelsImport:
 
     def test_import_models(self):
         """Test importing all models."""
-        from models import (
+        from backend.models import (
             AnalyzeRequest,
             AnalyzeResponse,
             ErrorResponse,
@@ -38,7 +38,7 @@ class TestConfigImport:
         os.environ["GOOGLE_CLOUD_PROJECT"] = "test-project-id"
 
         # Need to reimport to pick up new env vars (bypass cache)
-        from config import Settings
+        from backend.config import Settings
 
         settings = Settings()
 
@@ -54,7 +54,7 @@ class TestConfigImport:
         os.environ["GOOGLE_CLOUD_PROJECT"] = "test-project"
         os.environ["DD_SITE"] = "datadoghq.com"
 
-        from config import Settings
+        from backend.config import Settings
 
         settings = Settings()
 
@@ -71,7 +71,7 @@ class TestHealthResponseModel:
 
     def test_health_response_healthy(self):
         """Test creating a healthy response."""
-        from models import HealthResponse
+        from backend.models import HealthResponse
 
         response = HealthResponse(
             status="healthy",
@@ -87,7 +87,7 @@ class TestHealthResponseModel:
 
     def test_health_response_degraded(self):
         """Test creating a degraded response."""
-        from models import HealthResponse
+        from backend.models import HealthResponse
 
         response = HealthResponse(
             status="degraded",
@@ -106,7 +106,7 @@ class TestErrorResponse:
 
     def test_error_response(self):
         """Test creating an error response."""
-        from models import ErrorResponse
+        from backend.models import ErrorResponse
 
         error = ErrorResponse(
             error="Analysis failed",
@@ -120,7 +120,7 @@ class TestErrorResponse:
 
     def test_error_response_minimal(self):
         """Test creating minimal error response."""
-        from models import ErrorResponse
+        from backend.models import ErrorResponse
 
         error = ErrorResponse(error="Unknown error")
 
@@ -134,7 +134,7 @@ class TestAnalyzeResponseModel:
 
     def test_full_response(self):
         """Test creating a full analyze response."""
-        from models import AnalyzeResponse, MetricsBreakdown, OptimizationResult
+        from backend.models import AnalyzeResponse, MetricsBreakdown, OptimizationResult
 
         metrics = MetricsBreakdown(
             accuracy_score=0.75,
@@ -169,7 +169,7 @@ class TestAnalyzeResponseModel:
 
     def test_response_without_optimization(self):
         """Test response when no optimization needed."""
-        from models import AnalyzeResponse, MetricsBreakdown
+        from backend.models import AnalyzeResponse, MetricsBreakdown
 
         metrics = MetricsBreakdown(
             accuracy_score=0.95,  # Above threshold
