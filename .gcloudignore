@@ -50,40 +50,18 @@ htmlcov/
 tests/
 
 # Google Cloud
-*.json
+# Google Cloud
+# *.json <- REMOVED: needed for package.json etc
 !datadog-config/*.json
 service-account*.json
 sa-key.json
-
-# Logs
-*.log
-logs/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Gradio
-flagged/
-
-# Git
-.git/
-.github/
 
 # Demo artifacts
 demo-recorder/
 demo_production/
 
-
-
-# Frontend source (but NOT dist - we need that!)
+# Frontend (allow everything so Cloud Build can build it)
 frontend/node_modules/
-frontend/src/
-frontend/*.ts
-frontend/*.tsx
-frontend/*.json
 frontend/.git/
+# We DO want src, ts, json, etc. for the builder stage
 
-# Allow frontend/dist explicitly (build output)
-!frontend/dist/
-!frontend/dist/**

@@ -1,4 +1,4 @@
-# Prompt-Prompter - your prompts favourite prompter 
+# Prompt-Prompter - your prompts favourite prompter
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Deployed on Cloud Run](https://img.shields.io/badge/Deployed%20on-Cloud%20Run-4285F4?logo=google-cloud&logoColor=white)](https://prompt-prompter-668100993008.us-central1.run.app)
@@ -113,8 +113,8 @@ VERTEX_LOCATION=us-central1
 ### 3. Run Locally
 
 ```bash
-# Start the application (serves React UI + FastAPI backend)
-uv run python app.py
+# Start the application (serves Frontend + FastAPI backend)
+cd backend && uv run python app.py
 
 # Open http://localhost:7860
 ```

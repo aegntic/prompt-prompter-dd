@@ -27,7 +27,8 @@ wheels/
 
 # UV
 .venv/
-uv.lock
+# uv.lock <- Track this!
+
 
 # Virtual environments
 venv/
@@ -51,6 +52,7 @@ htmlcov/
 # *.json <- REMOVED: prevents tracking package.json
 !datadog-config/*.json
 service-account*.json
+sa-key.json
 # Ignore specific google credentials if not covered by service-account*.json
 gcp-*.json
 

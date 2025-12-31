@@ -1,0 +1,6 @@
+
+{
+  "name": "PROMPT PROMPTER",
+  "description": "An intelligent, self-healing prompt debugger and observability platform that optimizes AI prompts based on metrics-driven analysis and Gemini-powered remediation.",
+  "requestFramePermissions": []
+}
