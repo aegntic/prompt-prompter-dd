@@ -19,7 +19,7 @@
 
 **Prompt-prompter** is an intelligent prompt debugger that doesn't just monitor – it **heals**. Built for the Datadog Hackathon, this tool:
 
-1. **Executes** your prompt with Vertex AI Gemini
+1. **Executes** your prompt with **Vertex AI Gemini 3.0 Flash**
 2. **Analyzes** the response (accuracy, hallucination risk, cost)
 3. **Optimizes** low-scoring prompts automatically
 4. **Streams** telemetry to Datadog in real-time
@@ -29,40 +29,42 @@
 
 ## Features
 
-- **Gemini 2.0 Integration** – Real Vertex AI LLM calls (no mocks!)
+- **Gemini 3.0 Integration** – Cutting-edge Vertex AI LLM calls
+- **SolidJS Frontend** – Ultra-performant, reactive UI built with **Bun**
 - **Real-time Metrics** – Accuracy, tokens, latency, cost streamed to Datadog
 - **Auto-Optimization** – Prompts below 80% accuracy are automatically improved
 - **3+ Monitor Rules** – Accuracy, tokens, latency alerts with incident creation
 - **Embedded Dashboard** – Live Datadog telemetry visible directly in the UI
 - **SLOs** – 99% latency < 2s target with error budget tracking
-- **React UI** – Modern, high-fidelity Cyber-Tech interface with dark mode
 
 ## Architecture
 
-```
-┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
-│   React UI      │──────│  FastAPI Server  │──────│  Vertex AI      │
-│   (Port 7860)   │      │                  │      │  Gemini 2.0     │
-└─────────────────┘      └────────┬─────────┘      └─────────────────┘
-                                  │
-                    ┌─────────────┼─────────────┐
-                    ▼             ▼             ▼
-              ┌──────────┐  ┌──────────┐  ┌──────────┐
-              │ ddtrace  │  │ statsd   │  │ events   │
-              │ (APM)    │  │ (metrics)│  │ (alerts) │
-              └────┬─────┘  └────┬─────┘  └────┬─────┘
-                   │             │             │
-                   └─────────────┼─────────────┘
-                                 ▼
-                    ┌────────────────────────┐
-                    │      Datadog          │
-                    │  ┌──────┐ ┌────────┐   │
-                    │  │Traces│ │Monitors│   │
-                    │  └──────┘ └────────┘   │
-                    │  ┌──────┐ ┌────────┐   │
-                    │  │Dashbd│ │  SLOs  │   │
-                    │  └──────┘ └────────┘   │
-                    └────────────────────────┘
+```mermaid
+graph TD
+    Client[Browser / Client] -->|HTTPS| LoadBalancer[Cloud Load Balancer]
+    LoadBalancer -->|Traffic| CloudRun[Cloud Run Service]
+    
+    subgraph "Prompt Prompter Service"
+        FastAPI[FastAPI Backend]
+        SolidJS[SolidJS Frontend (Static)]
+        Bun[Bun Runtime (Build)]
+    end
+    
+    CloudRun --> FastAPI
+    FastAPI -->|Serve| SolidJS
+    
+    FastAPI -->|LLM Calls| VertexAI[Vertex AI (Gemini 3.0)]
+    FastAPI -->|Telemetry| Datadog[Datadog]
+    
+    subgraph "Datadog Observability"
+        APM[APM Traces]
+        Logs[Log Management]
+        Metrics[Custom Metrics]
+    end
+    
+    Datadog --> APM
+    Datadog --> Logs
+    Datadog --> Metrics
 ```
 
 ## Quick Start
@@ -70,7 +72,7 @@
 ### Prerequisites
 
 - Python 3.11+
-- Node.js 18+ (for frontend development)
+- [Bun](https://bun.sh/) 1.0+ (for frontend)
 - [UV](https://github.com/astral-sh/uv) package manager
 - Google Cloud project with Vertex AI enabled
 - Datadog account with API key
@@ -78,14 +80,14 @@
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/aegntic/prompt-prompter.git
-cd prompt-prompter
+git clone https://github.com/aegntic/prompt-prompter-dd.git
+cd prompt-prompter-dd
 
 # Install Python dependencies with UV
 uv sync
 
-# Install frontend dependencies (optional, for development)
-cd frontend && npm install && cd ..
+# Install frontend dependencies with Bun
+cd frontend && bun install && cd ..
 ```
 
 ### 2. Configure Environment
@@ -237,21 +239,19 @@ uv run pre-commit run --all-files
 
 ```
 prompt-prompter/
-├── app.py              # FastAPI main application (serves React)
-├── prompt_engine.py    # Gemini integration & evaluation
-├── models.py           # Pydantic request/response models
-├── config.py           # Settings from environment
-├── traffic_gen.py      # Load testing script
-├── frontend/           # React + TypeScript UI
-│   ├── App.tsx         # Main React component
-│   ├── components/     # UI components (Charts, Tables, Icons)
-│   ├── services/       # API client (geminiService.ts)
+├── app.py              # FastAPI main application (serves Frontend)
+├── backend/            # Backend logic
+│   ├── prompt_engine.py # Gemini 3.0 integration & evaluation
+│   ├── models.py       # Pydantic request/response models
+│   └── config.py       # Settings from environment
+├── frontend/           # SolidJS + TypeScript UI
+│   ├── App.tsx         # Main Component
+│   ├── components/     # UI components
+│   ├── services/       # API client
 │   └── dist/           # Production build (served by FastAPI)
-├── Dockerfile          # Container build
-├── docker-compose.yml  # Full stack with DD Agent
-├── datadog-config/     # Dashboard, monitors, SLOs JSON
-├── tests/              # Pytest test suite
-└── .github/workflows/  # CI/CD pipeline
+├── backfill_traffic.py # Traffic generator (Load testing)
+├── Dockerfile          # Multi-stage build (Bun + Python)
+└── datadog-config/     # Dashboard, monitors, SLOs JSON
 ```
 
 ## Hackathon Submission

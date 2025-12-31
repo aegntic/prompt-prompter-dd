@@ -36,8 +36,8 @@ class Settings(BaseSettings):
     debug: bool = Field(default=False, alias="DEBUG")
 
     # Model Configuration
-    gemini_model: str = Field(default="gemini-2.0-flash-exp", alias="GEMINI_MODEL")
-    optimizer_model: str = Field(default="gemini-2.0-flash-exp", alias="OPTIMIZER_MODEL")
+    gemini_model: str = Field(default="gemini-3.0-flash-exp", alias="GEMINI_MODEL")
+    optimizer_model: str = Field(default="gemini-3.0-flash-exp", alias="OPTIMIZER_MODEL")
 
     # Thresholds for alerting
     accuracy_threshold: float = Field(default=0.8, description="Minimum acceptable accuracy")
