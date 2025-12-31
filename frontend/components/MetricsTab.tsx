@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { ExternalLink, ListFilter, Search, Terminal, RefreshCw, CheckCircle, AlertTriangle, ShieldAlert, ShieldCheck, Activity, Database, Zap, Dog, Info } from 'lucide-react';
+import { ListFilter, Search, Terminal, RefreshCw, CheckCircle, AlertTriangle, ShieldAlert, ShieldCheck, Activity, Database, Zap, Dog, Info } from 'lucide-react';
 import { datadog, DatadogLog, DatadogAlert } from '../services/datadogService';
 
 const generateMockData = () => Array.from({ length: 24 }, (_, i) => ({
@@ -68,12 +68,20 @@ const MetricsTab: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [chartData, setChartData] = useState(generateMockData());
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [dashboardUrl, setDashboardUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = datadog.subscribe((newLog) => {
       setLogs(prev => [newLog, ...prev].slice(0, 50));
     });
     return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/config')
+      .then(res => res.json())
+      .then(config => setDashboardUrl(config.dd_dashboard_url))
+      .catch(err => console.error('Failed to fetch dashboard URL:', err));
   }, []);
 
   const handleManualSync = async () => {
@@ -120,6 +128,31 @@ const MetricsTab: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Live Datadog Dashboard */}
+      {dashboardUrl && (
+        <div className="hud-panel border-purple-500/20">
+          <div className="flex items-center gap-3 mb-4 pb-4 border-b border-purple-500/10">
+            <div className="w-8 h-8 bg-[#632CA6]/20 rounded-lg flex items-center justify-center">
+              <Activity className="text-purple-400" size={16} />
+            </div>
+            <div>
+              <h3 className="text-[10px] font-black text-purple-400 uppercase tracking-widest">
+                Live Datadog Dashboard
+              </h3>
+              <p className="text-[8px] text-slate-600 uppercase tracking-wider">Real-time Metrics Stream</p>
+            </div>
+          </div>
+          <div className="rounded-lg overflow-hidden border border-purple-500/20 bg-black/40" style={{ height: '600px' }}>
+            <iframe
+              src={dashboardUrl}
+              className="w-full h-full"
+              style={{ border: 'none' }}
+              title="Datadog Dashboard"
+            />
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Latency Radar HUD */}
